@@ -2,7 +2,7 @@
 
 GUI radio-only per **Huawei E5577Cs-321**. Non sostituisce la Web UI: si concentra su funzioni LTE avanzate escluse o nascoste dall'interfaccia Huawei.
 
-> **Stato reale GitHub (2026-10-13):** workstream e requisiti in definizione; il branch `work/pocket-manager-radio-v01` contiene per ora **solo documentazione**. L'implementazione sperimentale non importata nel repository e un precedente ZIP non sono una build/candidato verificato. Il presente README documenta il target v0.1, non funzionalità già collaudate.
+> **Stato reale GitHub (2026-10-13):** disponibili i primi moduli `discovery.py`, `profiles.py`, packaging core e test mock. **La GUI e il backend radio NON sono ancora presenti sul branch**: il precedente ZIP sperimentale non è la source of truth. I requisiti e i comandi GUI di seguito sono target, non una build verificata.
 
 ## Workflow canonico
 
@@ -33,7 +33,18 @@ GUI radio-only per **Huawei E5577Cs-321**. Non sostituisce la Web UI: si concent
 
 ## Installazione prevista su Ubuntu (Dell) — Python >=3.10
 
-**Nota:** i comandi seguenti diventano utilizzabili dopo l'importazione del codice nel branch GitHub; non prendere uno ZIP locale come source of truth.
+**Nota:** l'installazione core è disponibile sul branch. Il comando GUI `python -m pocket_manager` diventerà utilizzabile solo dopo il commit del modulo Qt e dell'entrypoint. Non prendere uno ZIP locale come source of truth.
+
+Per i test core attualmente disponibili:
+
+```bash
+cd pocket-manager
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e .
+python -m unittest discover -s tests -v
+```
+
 
 ```bash
 cd pocket-manager
