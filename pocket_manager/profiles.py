@@ -61,6 +61,20 @@ class ProfileStore:
                 import keyring
             except ImportError as exc:
                 raise CredentialStoreError("Keyring non installato") from exc
+            backend = keyring.get_keyring()
+            module = type(backend).__module__.lower()
+            # Fail closed: third-party plaintext files and chainer fallbacks
+            # are NOT equivalent to an operating-system credential vault.
+            allowed = (
+                "keyring.backends.secretservice",
+                "keyring.backends.kwallet",
+                "keyring.backends.windows",
+                "keyring.backends.macos",
+            )
+            if not module.startswith(allowed):
+                raise CredentialStoreError(
+                    "Portachiavi OS protetto non disponibile; nessun salvataggio in chiaro"
+                )
             return keyring
         return self._vault
 
