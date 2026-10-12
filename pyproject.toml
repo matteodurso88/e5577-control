@@ -5,17 +5,19 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pocket-radio-manager"
 version = "0.1.0"
-description = "Cross-platform Huawei pocket LTE radio management"
+description = "Cross-platform Huawei LTE radio monitor and band manager"
+readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-  "keyring>=25,<27",
-  "platformdirs>=4,<5",
-  "psutil>=5.9,<8"
+    "PySide6>=6.7,<7",
+    "huawei-lte-api>=1.11,<2",
+    "keyring>=25,<27",
+    "platformdirs>=4,<5",
+    "psutil>=5.9,<8",
 ]
 
-[project.optional-dependencies]
-gui = ["PySide6>=6.7,<7", "huawei-lte-api>=1.11,<2"]
-test = []
+[project.scripts]
+pocket-radio-manager = "pocket_manager.qt_app:main"
 
 [tool.setuptools.packages.find]
 include = ["pocket_manager*"]
