@@ -441,6 +441,21 @@ class PocketWindow(QMainWindow):
                 check.setChecked(band in self.available)
         else:
             self.support.setText("Bande da script E5577 (fallback non verificato dal firmware)")
+        # Reflect the *actual* radio configuration before the first edit.
+        current = snapshot.get("net_mode", {})
+        if isinstance(current, dict):
+            mode_index = self.mode.findData(str(current.get("NetworkMode", "")))
+            if mode_index >= 0:
+                self.mode.setCurrentIndex(mode_index)
+            try:
+                from .radio import bands_from_mask
+                active = bands_from_mask(current.get("LTEBand", ""))
+                if active:
+                    for band, check in self.band_checks.items():
+                        check.setChecked(band in active and (not self.available or band in self.available))
+            except ValueError:
+                self._log("Maschera radio corrente non interpretabile; nessuna selezione applicata.")
+        self._mask()
         self._set_online(True)
         self._reading(snapshot)
 
