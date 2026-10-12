@@ -2,7 +2,7 @@
 
 GUI radio-only per **Huawei E5577Cs-321**. Non sostituisce la Web UI: si concentra su funzioni LTE avanzate escluse o nascoste dall'interfaccia Huawei.
 
-> **Stato reale GitHub (2026-10-13):** disponibili i primi moduli `discovery.py`, `profiles.py`, packaging core e test mock. **La GUI e il backend radio NON sono ancora presenti sul branch**: il precedente ZIP sperimentale non è la source of truth. I requisiti e i comandi GUI di seguito sono target, non una build verificata.
+> **Stato GitHub (2026-10-13):** i sorgenti GUI PySide6, adapter Huawei, scanner, discovery, profili salvati e suite di test sono sul branch `work/pocket-manager-radio-v01`. **Non è ancora attestato il gate locale sul Dell né il collaudo hardware**. Lo ZIP sperimentale precedente non è fonte canonica.
 
 ## Workflow canonico
 
@@ -33,9 +33,9 @@ GUI radio-only per **Huawei E5577Cs-321**. Non sostituisce la Web UI: si concent
 
 ## Installazione prevista su Ubuntu (Dell) — Python >=3.10
 
-**Nota:** l'installazione core è disponibile sul branch. Il comando GUI `python -m pocket_manager` diventerà utilizzabile solo dopo il commit del modulo Qt e dell'entrypoint. Non prendere uno ZIP locale come source of truth.
+**Nota:** il codice è sul branch GitHub. Eseguire i test sul commit esatto prima dell'utilizzo sul pocket reale. Non usare lo ZIP sperimentale come sorgente.
 
-Per i test core attualmente disponibili:
+Per i test core:
 
 ```bash
 cd pocket-manager
@@ -80,6 +80,20 @@ python -m compileall -q pocket_manager
 ```
 
 La compatibilità eseguibile Linux/Windows/macOS richiede smoke test sulle rispettive piattaforme; non è sufficiente la sola importazione Python.
+
+### Gate locale prima di PR
+
+```bash
+cd ~/progetti/workshop/pocket-manager  # adattare alla propria directory clone
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e .
+python scripts/local_gate.py
+python -m pocket_manager
+```
+
+Per un primo smoke senza scritture: **Cerca pocket → Salva profilo → Ricorda nel keyring → Connetti → verifica segnale**. Eseguire band locking e restore soltanto dopo aver registrato la configurazione iniziale e con connessione alternativa. In Linux il portachiavi desktop deve essere sbloccato e disponibile; nessun fallback non cifrato.
+
 
 ## Origine e governance
 
