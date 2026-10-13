@@ -11,11 +11,12 @@ import sys
 import threading
 import time
 
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import QThread, Signal, Qt
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QFileDialog, QGridLayout,
     QGroupBox, QHBoxLayout, QHeaderView, QInputDialog, QLabel, QLineEdit,
     QFrame, QProgressBar, QStyle,
+    QDialog, QDialogButtonBox, QPlainTextEdit,
     QMainWindow, QMessageBox, QPushButton, QAbstractItemView, QTableWidget,
     QTableWidgetItem, QTabWidget, QTextEdit, QVBoxLayout, QWidget,
 )
@@ -474,8 +475,10 @@ class PocketWindow(QMainWindow):
             QAbstractItemView.EditTrigger.NoEditTriggers
         )
         self.sms_table.currentCellChanged.connect(self._select_sms)
+        self.sms_table.cellDoubleClicked.connect(self._open_sms_message)
+        self.sms_table.setToolTip("Doppio clic su una riga per leggere il messaggio completo.")
         box.addWidget(self.sms_table, 1)
-        box.addWidget(QLabel("Testo del messaggio selezionato"))
+        box.addWidget(QLabel("Anteprima · doppio clic sulla riga per aprire il messaggio completo"))
         self.sms_text = QTextEdit()
         self.sms_text.setReadOnly(True)
         self.sms_text.setPlaceholderText("Seleziona un SMS per leggerlo.")
@@ -515,6 +518,36 @@ class PocketWindow(QMainWindow):
             self.sms_text.setPlainText(self.messages[row].content)
         else:
             self.sms_text.clear()
+
+    def _create_sms_reader(self, row: int) -> QDialog | None:
+        """Build a plain-text, read-only SMS reader without modifying the SIM."""
+        if not 0 <= row < len(self.messages):
+            return None
+        message = self.messages[row]
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Leggi SMS")
+        dialog.resize(610, 440)
+        layout = QVBoxLayout(dialog)
+        header = QLabel()
+        header.setObjectName("smsReaderHeader")
+        header.setTextFormat(Qt.TextFormat.PlainText)
+        header.setWordWrap(True)
+        header.setText(f"Da: {message.phone}\nRicevuto: {message.date}")
+        layout.addWidget(header)
+        body = QPlainTextEdit()
+        body.setObjectName("smsReaderBody")
+        body.setReadOnly(True)
+        body.setPlainText(message.content)
+        layout.addWidget(body, 1)
+        actions = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        actions.rejected.connect(dialog.reject)
+        layout.addWidget(actions)
+        return dialog
+
+    def _open_sms_message(self, row: int, column: int):
+        dialog = self._create_sms_reader(row)
+        if dialog is not None:
+            dialog.exec()
 
     def _show_sms(self, items):
         self.messages = list(items)
