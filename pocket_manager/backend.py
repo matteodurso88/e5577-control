@@ -67,14 +67,14 @@ class HuaweiRadioBackend:
             "net_mode": self._read(self.client.net, "net_mode"),
             "plmn": self._read(self.client.net, "current_plmn"),
         }
+        # Monitor Huawei's current connection status on every poll, not just
+        # when first connecting or manually refreshing diagnostics.
+        monitoring = getattr(self.client, "monitoring", None)
+        if monitoring is not None:
+            result["monitoring_status"] = self._read(monitoring, "status")
         if full:
             result["mode_list"] = self._read(self.client.net, "net_mode_list")
             result["cell_info"] = self._read(self.client.net, "cell_info")
-            # These firmware endpoints are optional. Keep auth success
-            # distinct from evidence of a registered/connected LTE modem.
-            monitoring = getattr(self.client, "monitoring", None)
-            if monitoring is not None:
-                result["monitoring_status"] = self._read(monitoring, "status")
             result["device_information"] = self._read(self.client.device, "information")
         return result
 
