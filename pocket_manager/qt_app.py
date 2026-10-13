@@ -23,7 +23,7 @@ from . import __version__
 from .backend import HuaweiRadioBackend
 from .discovery import discover_report
 from .profiles import PocketProfile, ProfileStore, CredentialStoreError
-from .radio import FALLBACK_BANDS, FREQUENCIES, MODES, PRESETS, mask_hex, supported_bands, bands_from_mask, safe_json_data, has_radio_measurements
+from .radio import FALLBACK_BANDS, FREQUENCIES, MODES, PRESETS, mask_hex, supported_bands, bands_from_mask, safe_json_data, has_radio_measurements, network_overview
 
 
 class DiscoveryWorker(QThread):
@@ -210,6 +210,22 @@ class PocketWindow(QMainWindow):
     def _monitor_tab(self):
         w = QWidget()
         box = QVBoxLayout(w)
+        network_group = QGroupBox("Stato rete Huawei (letture firmware)")
+        network_grid = QGridLayout(network_group)
+        self.network_labels = {}
+        for n, (key, caption) in enumerate((
+            ("connection", "Connessione dati"), ("network", "Rete mobile"),
+            ("sim", "SIM"), ("operator", "Operatore"),
+            ("bars", "Segnale indicativo"), ("rf", "Metriche RF"),
+        )):
+            row, col = divmod(n, 3)
+            network_grid.addWidget(QLabel(caption), row * 2, col)
+            label = QLabel("—")
+            label.setWordWrap(True)
+            label.setStyleSheet("font-weight: bold;")
+            network_grid.addWidget(label, row * 2 + 1, col)
+            self.network_labels[key] = label
+        box.addWidget(network_group)
         group = QGroupBox("Serving cell / Qualità segnale")
         grid = QGridLayout(group)
         self.metrics = {}
@@ -273,6 +289,10 @@ class PocketWindow(QMainWindow):
             actions.addWidget(btn)
         box.addLayout(actions)
         self.current_label = QLabel("Stato attuale: —")
+        self.current_label.setToolTip(
+            "LTEBand è la maschera delle bande consentite, non la serving band "
+            "effettiva (che questo firmware non sta fornendo)."
+        )
         self.scan_status = QLabel("Scanner inattivo")
         box.addWidget(self.current_label)
         box.addWidget(self.scan_status)
@@ -497,12 +517,19 @@ class PocketWindow(QMainWindow):
         self.snapshot.update(data)
         signal = self.snapshot.get("signal", {})
         self.has_measurements = has_radio_measurements(signal)
+        overview = network_overview(
+            self.snapshot.get("monitoring_status"),
+            self.snapshot.get("plmn"),
+            signal,
+        )
+        for key, label in self.network_labels.items():
+            label.setText(overview[key])
         if self.online:
-            self.status.setText(
-                "● API Huawei connessa · misure LTE disponibili"
-                if self.has_measurements else
-                "● API Huawei connessa · misure LTE assenti (verificare rete mobile)"
-            )
+            connected = overview["connection"].startswith("Connessa")
+            state = ("dati mobili connessi (firmware)" if connected
+                     else "stato dati: " + overview["connection"].lower())
+            rf = "RF disponibili" if self.has_measurements else "RF dettagliati assenti"
+            self.status.setText("● API Huawei autenticata · " + state + " · " + rf)
             self._set_online(self.online)
         if isinstance(signal, dict):
             lower = {str(k).lower(): v for k, v in signal.items()}
