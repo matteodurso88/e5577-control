@@ -23,6 +23,35 @@ Corrections on branch `work/pocket-manager-radio-v01`:
 - `scripts/local_gate.py` now explicitly reports native process-signal failures and calls out Qt offscreen smoke as part of the suite. It never claims hardware/benchmark acceptance.
 
 Next owner gate: `git pull --ff-only` and `.venv/bin/python scripts/local_gate.py`; only if all 72 pass and the process exits zero, run `.venv/bin/python -m pocket_manager` for a brief basic/advanced toggle smoke. No modem writes or WAN benchmark required.
+## Estensione v0.1 — SMS e interruttore dati mobili (13 ottobre 2026)
+
+### SMS in Home e lettura dedicata
+
+- In **Stato connessione** compare la card **✉️ SMS**, che espone il numero di messaggi ricevuti/non letti ricavato da `sms/sms-count`. Il contatore viene aggiornato al login e ogni circa 30 secondi durante il normale polling, senza scaricare il testo dei messaggi.
+- Il pulsante **Apri messaggi** conduce alla scheda **Messaggi**. Si possono leggere i messaggi ricevuti (mittente, data, stato letto/non letto e corpo in puro testo) con paginazione di 20 SMS e controllo precedente/successivo. I messaggi sono caricati *solo su richiesta esplicita* tramite `sms/sms-list` (huawei-lte-api `get_sms_list`). Nessun invio, cancellazione, marcatura come letto o salvataggio automatico.
+- **Privacy:** il testo e i numeri di telefono esistono solo nella memoria della pagina SMS finché il dispositivo è collegato; vengono rimossi dalla vista allo scollegamento. **Mai** nei log, nella telemetria periodica, nel JSON diagnostico o su GitHub. La pagina usa `setPlainText`, senza HTML interpretato. Non condividere screenshot degli SMS senza redigere numeri/OTP.
+- Se il firmware non supporta il contatore o la lista, il programma mostra `Non disponibile` o un errore leggibile, senza inventare uno zero.
+
+### Attivazione/disattivazione dati mobili
+
+- Nella Home un comando **Attiva/Disattiva dati mobili** agisce sul toggle **`dialup/mobile-dataswitch`** della SIM, **non** sul Wi-Fi, sul collegamento locale della GUI, su `NetworkMode`, o sulle bande LTE. La GUI distingue `dati abilitati` da `Internet realmente connesso`, che è monitorato separatamente.
+- L'interruttore resta disabilitato se la lettura del firmware è assente/sconosciuta o durante altre operazioni; non presume lo stato da `monitoring/status`.
+- **Disattivazione con conferma esplicita:** avviso dell'interruzione del servizio Internet per tutti gli utenti del pocket. La riattivazione è disponibile quando il modem risponde.
+- Dopo ogni modifica, `set_mobile_dataswitch(0/1)` deve essere confermato dal read-back `mobile_dataswitch()`; se lo stato non si aggiorna, compare un errore e **non** viene annunciato successo. Il polling mantiene l'indicazione di stato aggiornata. Non è stato eseguito alcun comando reale sul dispositivo durante lo sviluppo.
+
+### Gate da eseguire sul Dell
+
+Le nuove feature sono implementate su branch `work/pocket-manager-radio-v01`, senza merge su `main`. Il nuovo gate comprende **88 test** (72 preesistenti, 13 test puri delle nuove funzionalità e 3 smoke GUI), non ancora attestati dal Dell.
+
+```bash
+cd ~/progetti/workshop/pocket-manager
+git pull --ff-only
+.venv/bin/python scripts/local_gate.py
+.venv/bin/python -m pocket_manager
+```
+
+Smoke consigliato: card SMS con contatore, pagina Messaggi, selezione del singolo SMS, paginazione (se più di 20), chiusura/reapertura e controllo privacy; verificare stato dell'interruttore dati. **Prima** eseguire le letture senza modifiche. Per la prima disattivazione attiva occorre verificare localmente che si possa raggiungere il modem anche senza dati cellulari e che l'utente possa ripristinare il servizio.
+
 ## Dashboard grafica e identificazione banda LTE — iterazione 13 ottobre 2026
 
 La schermata **Stato connessione** offre ora tre riquadri leggibili: **🌐 Rete mobile** (operatore/stato), **📶 Segnale** (tacche e barra Qt, indicatore approssimativo) e **📡 Banda LTE**. Le schede hanno icone native Qt, senza dipendenze da font esterni; le emoji nei titoli sono soltanto elementi decorativi, il testo rimane autonomo.
