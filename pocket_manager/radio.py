@@ -92,6 +92,58 @@ def has_radio_measurements(signal: Any) -> bool:
                for key in ("rsrp", "rsrq", "sinr", "rssi"))
 
 
+def network_overview(status: Any, plmn: Any, signal: Any) -> dict[str, str]:
+    """Interpret documented Huawei status fields, never infer missing RF values.
+
+    ConnectionStatus=901 reports an active Huawei data session; it does not
+    prove end-to-end Internet access from the host workstation.
+    SignalIcon/maxsignal is a coarse firmware bar indicator, NOT dBm.
+    """
+    state = status if isinstance(status, dict) and "__error__" not in status else {}
+    operator = plmn if isinstance(plmn, dict) and "__error__" not in plmn else {}
+
+    connection_codes = {
+        "900": "Connessione in corso",
+        "901": "Connessa (secondo firmware)",
+        "902": "Disconnessa",
+        "903": "Disconnessione in corso",
+        "904": "Connessione fallita",
+    }
+    connection = connection_codes.get(str(state.get("ConnectionStatus", "")), "Non disponibile")
+    networks = {
+        "19": "4G LTE", "101": "4G LTE",
+        "4": "3G WCDMA", "7": "3G HSPA",
+        "9": "HSPA+", "0": "Nessuna rete",
+    }
+    network = networks.get(
+        str(state.get("CurrentNetworkType", "")),
+        "Non disponibile",
+    )
+    sim = {
+        "1": "Pronta",
+        "0": "Non pronta / sconosciuta",
+    }.get(str(state.get("SimStatus", "")), "Non disponibile")
+
+    bars = "Non disponibile"
+    try:
+        count = int(state.get("SignalIcon", ""))
+        maximum = int(state.get("maxsignal", ""))
+        if 0 <= count <= maximum <= 10 and maximum > 0:
+            bars = f"{count}/{maximum} tacche (indicatore firmware)"
+    except (ValueError, TypeError):
+        pass
+
+    return {
+        "connection": connection,
+        "network": network,
+        "sim": sim,
+        "operator": str(operator.get("FullName") or operator.get("ShortName") or "Non disponibile")[:72],
+        "bars": bars,
+        "rf": ("Misure avanzate disponibili" if has_radio_measurements(signal)
+               else "Misure RSRP/RSRQ/SINR/RSSI indisponibili"),
+    }
+
+
 _SECRET_FIELD = re.compile(
     r"password|cookie|token|secret|imsi|imei|iccid|serial|"
     r"macaddress|ssid|msisdn|phonenumber|ipaddress|phonebook",
