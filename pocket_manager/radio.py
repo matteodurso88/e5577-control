@@ -144,6 +144,86 @@ def network_overview(status: Any, plmn: Any, signal: Any) -> dict[str, str]:
     }
 
 
+@dataclass(frozen=True)
+class BandIndicator:
+    """Distinguish a reported serving band from a single-band deduction.
+
+    The Huawei E5577Cs-321 (firmware 21.328.62.00.55) returns a null
+    lte_bandinfo field in owner data. A single allowed band + confirmed 4G
+    permits a *deduction*, not a serving-band API measurement.
+    """
+    label: str
+    detail: str
+    source: str  # "api" | "deduced" | "unknown"
+    band: int | None
+    allowed: tuple[int, ...]
+
+
+def _serving_band(signal: Any) -> int | None:
+    if not isinstance(signal, dict) or "__error__" in signal:
+        return None
+    # Only fields with a documented band-specific name, not "mode",
+    # "earfcn", net-mode LTEBand (bit mask), or generic "band".
+    raw = signal.get("lte_bandinfo")
+    if raw is None:
+        return None
+    if isinstance(raw, bool):
+        return None
+    candidate = str(raw).strip()
+    match = re.fullmatch(
+        r"(?:LTE[\s_-]*)?(?:BAND[\s_-]*|B)([1-9]\d?)",
+        candidate, re.IGNORECASE,
+    )
+    if match is None:
+        # Bare numeric value is accepted only as LTE-bandinfo, never generic.
+        match = re.fullmatch(r"([1-9]\d?)", candidate)
+    if not match:
+        return None
+    band = int(match.group(1))
+    return band if 1 <= band <= 64 else None
+
+
+def band_indicator(net_mode: Any, monitoring: Any, plmn: Any,
+                   signal: Any, supported: tuple[int, ...] = FALLBACK_BANDS) -> BandIndicator:
+    """User-visible LTE band with explicit origin and no fabricated RF data."""
+    cfg = net_mode if isinstance(net_mode, dict) and "__error__" not in net_mode else {}
+    try:
+        mask = parse_mask(cfg["LTEBand"])
+    except (KeyError, ValueError, TypeError):
+        return BandIndicator("Non rilevabile", "Configurazione delle bande non disponibile",
+                             "unknown", None, ())
+    known = tuple(sorted(set(supported)))
+    enabled = bands_from_mask(mask, known)
+    names = ", ".join(f"B{band}" for band in enabled)
+    extras = mask.bit_count() > len(enabled)
+    allowed_text = "Bande consentite: " + (names or "non identificate")
+    if extras:
+        allowed_text += " (e altre)"
+    active_lte = (
+        isinstance(monitoring, dict)
+        and isinstance(plmn, dict)
+        and str(monitoring.get("ConnectionStatus")) == "901"
+        and str(monitoring.get("CurrentNetworkType")) in ("19", "101")
+        and str(plmn.get("Rat")) == "7"
+    )
+    if not active_lte:
+        return BandIndicator("Non rilevabile", allowed_text + " · 4G non confermato",
+                             "unknown", None, enabled)
+    reported = _serving_band(signal)
+    if reported is not None and mask & (1 << (reported - 1)):
+        return BandIndicator(f"B{reported} · rilevata",
+                             allowed_text + " · valore fornito dall'API radio",
+                             "api", reported, enabled)
+    if mask.bit_count() == 1:
+        permitted = mask.bit_length()
+        return BandIndicator(f"B{permitted} · dedotta",
+                             allowed_text + " · unica banda possibile in 4G; "
+                             "non letta direttamente dalla cella",
+                             "deduced", permitted, enabled)
+    return BandIndicator("Non rilevabile", allowed_text + " · firmware privo della banda di cella",
+                         "unknown", None, enabled)
+
+
 _SECRET_FIELD = re.compile(
     r"password|cookie|token|secret|imsi|imei|iccid|serial|"
     r"macaddress|ssid|msisdn|phonenumber|ipaddress|phonebook",
