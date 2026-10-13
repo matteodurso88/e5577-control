@@ -228,6 +228,9 @@ def run_band_benchmark(radio, bands: list[int], cancel: threading.Event,
     endpoint = resolver()
     route = route_checker(radio.host, endpoint)  # PRE-WRITE safety gate
     baseline = radio.config()
+    before = radio.snapshot()
+    if not lte_connected(before.get("monitoring_status"), before.get("plmn")):
+        raise BenchmarkError("Pocket non connesso in LTE prima del benchmark")
     mode_list = radio._read(radio.client.net, "net_mode_list")
     advertised = set(supported_bands(mode_list))
     if not advertised or not set(bands).issubset(advertised):
@@ -297,7 +300,14 @@ def run_band_benchmark(radio, bands: list[int], cancel: threading.Event,
                 radio._write_verified(baseline, retries=18)
             if not baseline.matches(radio.config()):
                 raise BenchmarkError("Read-back baseline differente")
-            progress("Baseline ripristinata e verificata")
+            # A restored mask is not enough: wait for mobile data to return.
+            # Rollback verification ignores user cancellation deliberately.
+            if not _wait_lte(radio, threading.Event(), 30.0,
+                             sleeper=sleeper):
+                raise BenchmarkError(
+                    "Maschera originale ripristinata ma LTE non riconnesso"
+                )
+            progress("Baseline e connessione LTE ripristinate e verificate")
         except Exception as exc:
             rollback_error = str(exc)
     if rollback_error:
