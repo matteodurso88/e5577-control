@@ -1007,9 +1007,9 @@ class PocketWindow(QMainWindow):
             self.data_toggle.setText("Comando non disponibile")
         else:
             self.data_state.setText(
-                "📶  Internet mobile attivo"
+                "📶  Dati mobili abilitati"
                 if self.mobile_enabled else
-                "📴  Internet mobile disattivato"
+                "📴  Dati mobili disabilitati"
             )
             self.data_toggle.setText(
                 "Disattiva dati mobili" if self.mobile_enabled
