@@ -64,3 +64,31 @@ def friendly_band_status(status: str) -> str:
         "Nessuna connessione LTE": "Senza connessione 4G",
         "Nessuna misura": "Dati non disponibili",
     }.get(status, status)
+
+
+def friendly_changes(changes: str) -> str:
+    if not changes:
+        return "Nessuna variazione"
+    if changes == "Inizio osservazione":
+        return "Inizio registrazione"
+    names = {
+        "connection": "Connessione",
+        "network": "Tipo di rete",
+        "sim": "SIM",
+        "operator": "Operatore",
+        "bars": "Segnale",
+        "rf": "Misure avanzate",
+    }
+    return ", ".join(names.get(part.strip(), part.strip())
+                     for part in changes.split(",") if part.strip())
+
+
+def friendly_error(message: str) -> str:
+    if "108006" in message or "Username and Password wrong" in message:
+        return "Password o nome utente non corretti. Riprova."
+    if "ROLLBACK NON" in message or "baseline NON ripristinata" in message:
+        return ("ATTENZIONE: il ripristino automatico non è stato verificato. "
+                "Controlla subito le impostazioni originali del dispositivo.")
+    if "100002" in message and "No support" in message:
+        return "Questa funzione non è supportata dal firmware del pocket."
+    return message
