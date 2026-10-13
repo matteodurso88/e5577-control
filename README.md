@@ -45,6 +45,18 @@ Evidenze dalle schermate owner:
 
 Prossimo controllo in sola lettura: `git pull --ff-only`, `python scripts/local_gate.py`, `python -m pocket_manager`, login, scheda `Dati API` e `Aggiorna dati API`. Per supporto condividere solo sezioni redatte di `signal`, `monitoring_status`, `net_mode` e `plmn`; evitare credenziali, token, IMEI e seriali. Verificare sulla Web UI Huawei che SIM, registrazione rete e dati mobili siano attivi.
 
+## LTE status fallback — real E5577Cs-321 payload (2026-10-13)
+
+Owner data from firmware 21.328.62.00.55 confirms:
+- Huawei reports ConnectionStatus=901 (data session connected), CurrentNetworkType=19 (4G LTE), SIM=1 (ready), operator WINDTRE.
+- SignalIcon=1 and maxsignal=5: coarse firmware indicator 1/5 bars, NOT a dBm measurement.
+- API signal has mode=7, psatt=1, but all LTE RF metrics RSRP/RSRQ/SINR/RSSI/PCI/cell id are null; do not treat as zero or claim no mobile connection.
+- cell_info reports 100002 No support. LTEBand=40 is a B7 permission mask, NOT verified serving-cell band.
+- Live GUI monitoring_status is now polled alongside signal. Connection, SIM, operator, technology and coarse bars are separate from engineering RF.
+- Keep scanner disabled while RF is absent; do not change radio bands until baseline/recovery validated.
+
+Next Dell gate: git pull --ff-only, .venv/bin/python scripts/local_gate.py, .venv/bin/python -m pocket_manager. Expected 32 tests; new gate not yet attested.
+
 ## Discovery / Pocket salvati — requisiti v0.1
 
 1. Individuare pocket raggiungibili tramite probe non invasivi sulle interfacce locali, controllando identità modello via API Huawei. Supportare IP manuale.
