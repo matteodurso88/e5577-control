@@ -71,5 +71,44 @@ class NativeBuildTests(unittest.TestCase):
         self.assertIn(__version__, stream.getvalue())
 
 
+    def test_svg_icon_is_native_vector_with_accessible_title(self):
+        from xml.etree import ElementTree
+        source = Path(__file__).resolve().parents[1] / "assets" / "pocket-radio-manager-icon.svg"
+        root = ElementTree.parse(source).getroot()
+        self.assertEqual(root.get("viewBox"), "0 0 256 256")
+        self.assertTrue(root.findall(".//{http://www.w3.org/2000/svg}path"))
+        self.assertTrue(root.findall(".//{http://www.w3.org/2000/svg}title"))
+        self.assertNotIn("<image", source.read_text(encoding="utf-8"))
+
+    def test_debian_menu_entry_is_correctly_scoped(self):
+        desktop = (Path(__file__).resolve().parents[1] / "packaging" / "linux"
+                   / "io.matt88.PocketRadioManager.desktop").read_text(encoding="utf-8")
+        self.assertIn("[Desktop Entry]", desktop)
+        self.assertIn("Type=Application", desktop)
+        self.assertIn("Name=Pocket Radio Manager", desktop)
+        self.assertIn("Exec=/opt/pocket-radio-manager/PocketRadioManager", desktop)
+        self.assertIn("Icon=pocket-radio-manager", desktop)
+        self.assertIn("Categories=Network;Utility;", desktop)
+
+    def test_windows_installer_contains_start_menu_and_uninstall(self):
+        setup = (Path(__file__).resolve().parents[1] / "packaging" / "windows"
+                 / "PocketRadioManager.iss").read_text(encoding="utf-8")
+        self.assertIn("SetupIconFile={#IconFile}", setup)
+        self.assertIn('Name: "{autoprograms}', setup)
+        self.assertIn("UninstallDisplayIcon={app}", setup)
+        self.assertIn("PrivilegesRequired=lowest", setup)
+        self.assertIn('Name: "desktopicon"', setup)
+
+    def test_release_tag_is_project_scoped_and_requires_main(self):
+        workflow = (Path(__file__).resolve().parents[2] / ".github" / "workflows"
+                    / "pocket-radio-manager-desktop.yml").read_text(encoding="utf-8")
+        self.assertIn("refs/heads/main", workflow)
+        self.assertIn("needs: package", workflow)
+        self.assertIn("TAG: pocket-radio-manager/v0.1.0", workflow)
+        self.assertIn("pocket-radio-manager-v0.1.0-linux-x86_64.deb", workflow)
+        self.assertIn("pocket-radio-manager-v0.1.0-windows-x86_64-setup.exe", workflow)
+
+
+
 if __name__ == "__main__":
     unittest.main()
