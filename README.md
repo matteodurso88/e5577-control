@@ -2,7 +2,7 @@
 
 GUI radio-only per **Huawei E5577Cs-321**. Non sostituisce la Web UI: si concentra su funzioni LTE avanzate escluse o nascoste dall'interfaccia Huawei.
 
-> **Stato GitHub (2026-10-13):** i sorgenti GUI PySide6, adapter Huawei, scanner, discovery, profili salvati e suite di test sono sul branch `work/pocket-manager-radio-v01`. **Non è ancora attestato il gate locale sul Dell né il collaudo hardware**. Lo ZIP sperimentale precedente non è fonte canonica.
+> **Stato GitHub (2026-10-13):** i sorgenti GUI PySide6, adapter Huawei, scanner, discovery, profili salvati e suite di test sono sul branch `work/pocket-manager-radio-v01`. **L'owner ha verificato il gate core 26/26, login GUI reale, rilevamento modello e monitor stato. Lo storico live successivo richiede ancora il nuovo gate sul Dell; scan e controllo radio su hardware non sono certificati.** Lo ZIP sperimentale precedente non è fonte canonica.
 
 ## Workflow canonico
 
@@ -57,6 +57,26 @@ Owner data from firmware 21.328.62.00.55 confirms:
 
 Next Dell gate: git pull --ff-only, .venv/bin/python scripts/local_gate.py, .venv/bin/python -m pocket_manager. Expected 32 tests; new gate not yet attested.
 
+## Storico live — monitoraggio in sola lettura (work/*)
+
+- Aggiunto monitoraggio autenticato di `monitoring/traffic-statistics`: lettura ogni ~3 s insieme a `device/signal` e `monitoring/status`.
+- I campi `CurrentDownloadRate` e `CurrentUploadRate`, quando forniti dal firmware, sono esposti come B/s, KiB/s o MiB/s; se assenti o endpoint non supportato compare `—`, **mai un falso zero**.
+- La nuova scheda **Storico live** mostra timestamp, connessione, rete, tacche, download, upload ed eventuali variazioni dello stato Huawei.
+- Lo storico è **in RAM**, limitato agli ultimi 120 campioni, e si azzera col pulsante o all'avvio di una nuova sessione.
+- Il pulsante di export JSON già esistente include, su scelta dell'utente, una whitelist dello storico: niente credenziali, session token, IMEI, seriali, PCI o payload raw.
+- Non ci sono nuove scritture LTE. RSRP/RSRQ/SINR/RSSI rimangono `indisponibili` nel firmware attualmente osservato; il traffico non è un surrogato della qualità del segnale.
+- Fonti pubbliche: `huawei-lte-api` (metodo monitoring.traffic_statistics), exporter HiLink che usa `api/monitoring/traffic-statistics` e `api/device/signal`. Disponibilità sul modello E5577Cs-321 da verificare tramite read-back reale.
+
+Gate locale da eseguire sul Dell sulla revisione corrente (39 test attesi, non ancora verificati):
+
+```bash
+cd ~/progetti/workshop/pocket-manager
+git pull --ff-only
+.venv/bin/python scripts/local_gate.py
+.venv/bin/python -m pocket_manager
+```
+
+Verifica manuale: aprire `Storico live`, attendere almeno 20-30 secondi e confrontare variazione del contatore campioni, operatore, stato e tacche; verificare se `Download`/`Upload` restituiscono valori numerici oppure `—` (API non supportata). Non fare scan né band locking.
 ## Discovery / Pocket salvati — requisiti v0.1
 
 1. Individuare pocket raggiungibili tramite probe non invasivi sulle interfacce locali, controllando identità modello via API Huawei. Supportare IP manuale.
