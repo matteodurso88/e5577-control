@@ -7,7 +7,8 @@ import unittest
 from unittest.mock import patch
 
 from pocket_manager.discovery import (
-    candidates_from_interfaces, parse_device_information, probe, discover
+    candidates_from_interfaces, parse_device_information, parse_compatible_endpoint,
+    probe, probe_detailed, discover, discover_report
 )
 from pocket_manager.profiles import (
     CredentialStoreError, PocketProfile, ProfileStore, SERVICE
@@ -61,6 +62,62 @@ class DiscoveryTests(unittest.TestCase):
         self.assertIsNone(parse_device_information(
             b"<error><code>100003</code></error>", "192.168.8.1"))
         self.assertIsNone(probe("8.8.8.8"))
+
+    def test_information_auth_error_but_anonymous_signal_succeeds(self):
+        def fetch(host, endpoint, timeout):
+            if endpoint == "api/device/information":
+                return b"<error><code>100003</code></error>", "HTTP 200"
+            if endpoint == "api/device/signal":
+                return b"<response><rsrp>-91dBm</rsrp><sinr>12dB</sinr></response>", "HTTP 200"
+            return None, "not probed"
+
+        with patch("pocket_manager.discovery._fetch_api", side_effect=fetch):
+            device, diagnostics = probe_detailed("192.168.8.1")
+        self.assertIsNotNone(device)
+        self.assertEqual(device.detection, "compatible_api")
+        self.assertEqual(device.host, "192.168.8.1")
+        self.assertNotIn("modello E5577", " ".join(diagnostics))
+
+    def test_sestokinfo_fallback_recognizes_compatible_api_without_leaking_token(self):
+        def fetch(host, endpoint, timeout):
+            if endpoint.endswith("SesTokInfo"):
+                return (b"<response><SesInfo>SessionID=privatesession</SesInfo>"
+                        b"<TokInfo>SECRET-TOKEN</TokInfo></response>"), "HTTP 200"
+            return None, "HTTP 403"
+
+        with patch("pocket_manager.discovery._fetch_api", side_effect=fetch):
+            device, diagnostics = probe_detailed("192.168.8.1")
+        self.assertEqual(device.detection, "compatible_api")
+        self.assertNotIn("SECRET-TOKEN", " ".join(diagnostics))
+        self.assertNotIn("privatesession", " ".join(diagnostics))
+
+    def test_unrelated_web_server_is_not_identified(self):
+        def fetch(*args):
+            return b"<html>OK</html>", "HTTP 200"
+
+        with patch("pocket_manager.discovery._fetch_api", side_effect=fetch):
+            device, diagnostics = probe_detailed("192.168.9.1")
+        self.assertIsNone(device)
+        self.assertIn("risposta non identificante", " ".join(diagnostics))
+
+    def test_saved_and_manual_hosts_have_priority_over_many_interfaces(self):
+        interfaces = [(f"10.{i}.0.50", "255.255.255.0") for i in range(1, 60)]
+        hosts = candidates_from_interfaces(
+            interfaces, ("192.168.8.44", "10.90.0.22"),
+            ("192.168.8.1",)
+        )
+        self.assertLessEqual(len(hosts), 32)
+        self.assertEqual(hosts[:3], ["192.168.8.44", "10.90.0.22", "192.168.8.1"])
+
+    def test_report_includes_attempted_ips_and_results(self):
+        from pocket_manager.discovery import DiscoveredPocket
+        pocket = DiscoveredPocket("192.168.8.1", "E5577Cs-321", "E5577Cs-321", "Huawei")
+        with patch("pocket_manager.discovery.host_candidates", return_value=["192.168.8.1"]):
+            with patch("pocket_manager.discovery.probe_detailed", return_value=(pocket, ("192.168.8.1: identificato",))):
+                report = discover_report()
+        self.assertEqual(report.candidates, ("192.168.8.1",))
+        self.assertEqual(report.devices[0].model, "E5577Cs-321")
+        self.assertEqual(len(report.diagnostics), 1)
 
 
 class ProfilesTests(unittest.TestCase):
