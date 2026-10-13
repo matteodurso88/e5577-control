@@ -272,6 +272,11 @@ class PocketWindow(QMainWindow):
 
     def _set_advanced(self, enabled: bool):
         """Only change visibility: technical widgets and their state remain intact."""
+        # Qt selects a nearby tab automatically as soon as the current tab
+        # becomes hidden. Change to the dashboard BEFORE hiding either
+        # advanced tab; otherwise currentIndex() is already 3 here.
+        if not enabled and self.tabs.currentIndex() in (2, 4):
+            self.tabs.setCurrentIndex(0)
         self.tabs.setTabVisible(2, enabled)
         self.tabs.setTabVisible(4, enabled)
         self.host_caption.setVisible(enabled)
@@ -283,9 +288,6 @@ class PocketWindow(QMainWindow):
         self.signals.setVisible(enabled)
         self.log_title.setVisible(enabled)
         self.log.setVisible(enabled)
-        if not enabled and self.tabs.currentIndex() in (2, 4):
-            self.tabs.setCurrentIndex(0)
-
     def _summary_card(self, heading: str):
         """Reusable native Qt status card; text works even without emoji fonts."""
         frame = QFrame()
