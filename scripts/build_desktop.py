@@ -167,7 +167,12 @@ def record_sha256(files: list[Path]) -> Path:
 
 
 def run() -> int:
-    from scripts.generate_icons import generate
+    # Entry as a script: python scripts/build_desktop.py has scripts/ on sys.path.
+    # Entry as a test module: scripts.build_desktop resolves package imports.
+    if __package__:
+        from .generate_icons import generate
+    else:
+        from generate_icons import generate
 
     platform_name, extension = target()
     png, ico = generate()
