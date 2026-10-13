@@ -165,9 +165,10 @@ class PocketWindow(QMainWindow):
         self.has_measurements = False
         self.detected_model = ""
         self.timeline = TelemetryTimeline(120)
-        self.setWindowTitle("Pocket Radio Manager " + __version__)
-        self.resize(1120, 770)
+        self.setWindowTitle("Pocket Radio Manager · " + __version__)
+        self.resize(1180, 780)
         self._build()
+        self._set_advanced(False)
         self._reload_profiles()
         self._set_online(False)
 
@@ -180,13 +181,13 @@ class PocketWindow(QMainWindow):
         self.saved = QComboBox()
         self.saved.setMinimumWidth(300)
         self.saved.currentIndexChanged.connect(self._select_saved)
-        self.discover_btn = QPushButton("Cerca pocket")
+        self.discover_btn = QPushButton("Trova dispositivo")
         self.discover_btn.clicked.connect(self._discover)
-        save = QPushButton("Salva / aggiorna")
+        save = QPushButton("Salva dispositivo")
         save.clicked.connect(self._save)
-        delete = QPushButton("Rimuovi")
+        delete = QPushButton("Elimina")
         delete.clicked.connect(self._delete)
-        for widget in (QLabel("Dispositivi"), self.saved, self.discover_btn, save, delete):
+        for widget in (QLabel("Dispositivo"), self.saved, self.discover_btn, save, delete):
             devices.addWidget(widget)
         outer.addLayout(devices)
 
@@ -194,37 +195,55 @@ class PocketWindow(QMainWindow):
         self.host = QLineEdit("192.168.8.1")
         self.host.setMaximumWidth(165)
         self.alias = QLineEdit("Il mio pocket")
-        self.alias.setMaximumWidth(175)
+        self.alias.setMinimumWidth(230)
+        self.alias.setToolTip("Nome a tua scelta per riconoscere questo pocket.")
         self.username = QLineEdit("admin")
         self.username.setMaximumWidth(115)
         self.password = QLineEdit()
         self.password.setMaximumWidth(180)
         self.password.setEchoMode(QLineEdit.EchoMode.Password)
-        self.password.setPlaceholderText("Password admin")
-        self.remember = QCheckBox("Ricorda nel keyring")
+        self.password.setPlaceholderText("Password del dispositivo")
+        self.remember = QCheckBox("Ricorda la password")
+        self.remember.setToolTip(
+            "La password è conservata nel portachiavi protetto del sistema. "
+            "Non viene salvata in chiaro."
+        )
         self.connect_btn = QPushButton("Connetti")
         self.connect_btn.clicked.connect(self._connect)
-        self.disconnect_btn = QPushButton("Disconnetti")
+        self.disconnect_btn = QPushButton("Scollega")
         self.disconnect_btn.clicked.connect(self._disconnect)
-        for item in (QLabel("IP"), self.host, QLabel("Alias"), self.alias,
-                     QLabel("Utente"), self.username, QLabel("Password"),
+        self.host_caption = QLabel("Indirizzo IP")
+        self.username_caption = QLabel("Utente")
+        for item in (self.host_caption, self.host, QLabel("Nome"), self.alias,
+                     self.username_caption, self.username, QLabel("Password"),
                      self.password, self.remember, self.connect_btn, self.disconnect_btn):
             connection.addWidget(item)
         outer.addLayout(connection)
 
-        self.status = QLabel("● Disconnesso — nessuna modifica radio effettuata")
-        outer.addWidget(self.status)
-        tabs = QTabWidget()
-        tabs.addTab(self._monitor_tab(), "Monitor LTE")
-        tabs.addTab(self._timeline_tab(), "Storico live")
-        tabs.addTab(self._bands_tab(), "Bande / Scanner")
-        tabs.addTab(self._benchmark_tab(), "Benchmark LTE")
-        tabs.addTab(self._diagnostics_tab(), "Dati API")
-        outer.addWidget(tabs, 1)
-        outer.addWidget(QLabel("Registro operazioni"))
+        header = QHBoxLayout()
+        self.status = QLabel("● Dispositivo non collegato")
+        self.status.setWordWrap(True)
+        self.advanced_toggle = QCheckBox("Mostra strumenti avanzati")
+        self.advanced_toggle.setToolTip(
+            "Mostra configurazione manuale delle bande, parametri radio, "
+            "indirizzo IP e dati diagnostici senza rimuovere alcuna funzione."
+        )
+        self.advanced_toggle.toggled.connect(self._set_advanced)
+        header.addWidget(self.status, 1)
+        header.addWidget(self.advanced_toggle)
+        outer.addLayout(header)
+
+        self.tabs = QTabWidget()
+        self.tabs.addTab(self._monitor_tab(), "Stato connessione")
+        self.tabs.addTab(self._timeline_tab(), "Andamento")
+        self.tabs.addTab(self._bands_tab(), "Controllo manuale")
+        self.tabs.addTab(self._benchmark_tab(), "Confronta bande")
+        self.tabs.addTab(self._diagnostics_tab(), "Dettagli tecnici")
+        outer.addWidget(self.tabs, 1)
+        outer.addWidget(QLabel("Attività recenti"))
         self.log = QTextEdit()
         self.log.setReadOnly(True)
-        self.log.setMaximumHeight(125)
+        self.log.setMaximumHeight(105)
         outer.addWidget(self.log)
         self.setStyleSheet(
             "QWidget {font-size: 13px;} QPushButton {padding: 6px 10px;}"
@@ -232,16 +251,29 @@ class PocketWindow(QMainWindow):
             "QGroupBox::title {subcontrol-origin: margin; left: 8px;}"
         )
 
+    def _set_advanced(self, enabled: bool):
+        """Only change visibility: technical widgets and their state remain intact."""
+        self.tabs.setTabVisible(2, enabled)
+        self.tabs.setTabVisible(4, enabled)
+        self.host_caption.setVisible(enabled)
+        self.host.setVisible(enabled)
+        self.username_caption.setVisible(enabled)
+        self.username.setVisible(enabled)
+        self.advanced_signal_group.setVisible(enabled)
+        self.signals.setVisible(enabled)
+        if not enabled and self.tabs.currentIndex() in (2, 4):
+            self.tabs.setCurrentIndex(0)
+
     def _monitor_tab(self):
         w = QWidget()
         box = QVBoxLayout(w)
-        network_group = QGroupBox("Stato rete Huawei (letture firmware)")
+        network_group = QGroupBox("La tua connessione")
         network_grid = QGridLayout(network_group)
         self.network_labels = {}
         for n, (key, caption) in enumerate((
             ("connection", "Connessione dati"), ("network", "Rete mobile"),
             ("sim", "SIM"), ("operator", "Operatore"),
-            ("bars", "Segnale indicativo"), ("rf", "Metriche RF"),
+            ("bars", "Segnale"), ("rf", "Misure approfondite"),
         )):
             row, col = divmod(n, 3)
             network_grid.addWidget(QLabel(caption), row * 2, col)
@@ -251,9 +283,20 @@ class PocketWindow(QMainWindow):
             network_grid.addWidget(label, row * 2 + 1, col)
             self.network_labels[key] = label
         box.addWidget(network_group)
-        self.traffic_label = QLabel("Traffico dati: ↓ —   ↑ —")
+        self.traffic_label = QLabel("Trasferimento in questo momento:  Scaricamento ↓ —    Invio ↑ —")
+        self.traffic_label.setToolTip(
+            "Questi dati provengono dal pocket: indicano il traffico corrente "
+            "di tutti i dispositivi collegati, non sono uno speed test."
+        )
         box.addWidget(self.traffic_label)
-        group = QGroupBox("Serving cell / Qualità segnale")
+        info = QLabel(
+            "Il livello del segnale è indicativo. Per scegliere quale banda "
+            "funziona meglio, usa «Confronta bande»: misura la connessione Internet."
+        )
+        info.setWordWrap(True)
+        box.addWidget(info)
+        group = QGroupBox("Misure radio dettagliate · strumenti avanzati")
+        self.advanced_signal_group = group
         grid = QGridLayout(group)
         self.metrics = {}
         for n, key in enumerate(self.METRICS):
@@ -265,7 +308,7 @@ class PocketWindow(QMainWindow):
             self.metrics[key] = label
         box.addWidget(group)
         self.signals = QTableWidget(0, 2)
-        self.signals.setHorizontalHeaderLabels(["Campo firmware", "Valore"])
+        self.signals.setHorizontalHeaderLabels(["Parametro radio", "Valore"])
         self.signals.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         box.addWidget(self.signals, 1)
         return w
@@ -364,11 +407,11 @@ class PocketWindow(QMainWindow):
         self.test_repeats.addItem("2 prove", 2)
         self.test_repeats.addItem("3 prove", 3)
         self.test_repeats.setCurrentIndex(1)
-        self.route_btn = QPushButton("Verifica uscita Internet")
+        self.route_btn = QPushButton("1. Verifica connessione")
         self.route_btn.clicked.connect(self._route_check)
-        self.benchmark_btn = QPushButton("Benchmark bande selezionate")
+        self.benchmark_btn = QPushButton("2. Avvia confronto")
         self.benchmark_btn.clicked.connect(self._benchmark)
-        self.bench_cancel_btn = QPushButton("Interrompi benchmark")
+        self.bench_cancel_btn = QPushButton("Interrompi prova")
         self.bench_cancel_btn.clicked.connect(self._cancel)
         for item in (QLabel("Budget"), self.test_size, self.test_repeats,
                      self.route_btn, self.benchmark_btn, self.bench_cancel_btn):
@@ -476,7 +519,7 @@ class PocketWindow(QMainWindow):
     def _reload_profiles(self, chosen: str | None = None):
         self.saved.blockSignals(True)
         self.saved.clear()
-        self.saved.addItem("— Scegli pocket salvato —", None)
+        self.saved.addItem("— Seleziona un dispositivo salvato —", None)
         try:
             for profile in self.store.list():
                 self.saved.addItem(f"{profile.alias} · {profile.host}", profile.id)
