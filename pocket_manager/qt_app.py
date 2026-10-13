@@ -273,7 +273,10 @@ class PocketWindow(QMainWindow):
     def _bands_tab(self):
         w = QWidget()
         box = QVBoxLayout(w)
-        note = QLabel("Solo radio LTE. Le maschere possono interrompere la WAN; alcune configurazioni sono bloccate dal firmware.")
+        note = QLabel(
+            "Gestione manuale bande LTE. Le maschere possono interrompere la WAN; "
+            "alcune configurazioni sono bloccate dal firmware."
+        )
         note.setWordWrap(True)
         box.addWidget(note)
         self.support = QLabel("Bande E5577 da script storico (non ancora verificate)")
@@ -281,8 +284,7 @@ class PocketWindow(QMainWindow):
         checks = QHBoxLayout()
         self.band_checks = {}
         for band in FALLBACK_BANDS:
-            label = f"B{band} ({FREQUENCIES[band]} MHz)"
-            check = QCheckBox(label)
+            check = QCheckBox(f"B{band} ({FREQUENCIES[band]} MHz)")
             check.setChecked(True)
             check.stateChanged.connect(self._mask)
             checks.addWidget(check)
@@ -296,21 +298,19 @@ class PocketWindow(QMainWindow):
         self.mode = QComboBox()
         for name, value in MODES.items():
             self.mode.addItem(name, value)
-        self.mask_label = QLabel("Mask: —")
-        row.addWidget(QLabel("Preset"))
-        row.addWidget(self.preset)
-        row.addWidget(QLabel("NetworkMode"))
-        row.addWidget(self.mode)
-        row.addWidget(self.mask_label)
+        self.mask_label = QLabel("Maschera LTE: —")
+        for item in (QLabel("Preset"), self.preset, QLabel("NetworkMode"),
+                     self.mode, self.mask_label):
+            row.addWidget(item)
         box.addLayout(row)
         actions = QHBoxLayout()
         self.apply_btn = QPushButton("Applica bande")
         self.apply_btn.clicked.connect(self._apply)
         self.restore_btn = QPushButton("Ripristina precedente")
         self.restore_btn.clicked.connect(self._restore)
-        self.scan_btn = QPushButton("Scansiona selezionate")
+        self.scan_btn = QPushButton("Scansiona misure RF")
         self.scan_btn.clicked.connect(self._scan)
-        self.cancel_btn = QPushButton("Interrompi scan/test")
+        self.cancel_btn = QPushButton("Interrompi scanner / benchmark")
         self.cancel_btn.clicked.connect(self._cancel)
         for btn in (self.apply_btn, self.restore_btn, self.scan_btn, self.cancel_btn):
             actions.addWidget(btn)
@@ -320,13 +320,17 @@ class PocketWindow(QMainWindow):
             "LTEBand è la maschera delle bande consentite, non la serving band "
             "effettiva (che questo firmware non sta fornendo)."
         )
-        self.scan_status = QLabel("Scanner inattivo")
+        self.scan_status = QLabel("Scanner RF inattivo")
         box.addWidget(self.current_label)
         box.addWidget(self.scan_status)
         self.scan_table = QTableWidget(0, 7)
-        self.scan_table.setHorizontalHeaderLabels(["Banda", "RSRP", "RSRQ", "SINR", "RSSI", "PCI", "Stato"])
-        self.scan_table.horizontalHeader().setSectionResizeMode(QHeaderView.Re(self.benchmark_table)
-        box.addWidget(bench_group, 1)
+        self.scan_table.setHorizontalHeaderLabels(
+            ["Banda", "RSRP", "RSRQ", "SINR", "RSSI", "PCI", "Stato"]
+        )
+        self.scan_table.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.Stretch
+        )
+        box.addWidget(self.scan_table, 1)
         self._mask()
         return w
 
