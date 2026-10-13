@@ -72,6 +72,10 @@ class HuaweiRadioBackend:
         monitoring = getattr(self.client, "monitoring", None)
         if monitoring is not None:
             result["monitoring_status"] = self._read(monitoring, "status")
+            # Huawei HiLink read-only endpoint; traffic rates in bytes/sec
+            # when exposed by firmware. Unsupported is represented by error,
+            # never guessed from total counters.
+            result["traffic_statistics"] = self._read(monitoring, "traffic_statistics")
         if full:
             result["mode_list"] = self._read(self.client.net, "net_mode_list")
             result["cell_info"] = self._read(self.client.net, "cell_info")
