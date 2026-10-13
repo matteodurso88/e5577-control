@@ -102,7 +102,7 @@ class BenchmarkTests(unittest.TestCase):
             downloader=extra.pop("downloader", lambda *a, **k: DownloadSample(12.5, 45, 1048576)),
             repeats=extra.pop("repeats", 2),
             bytes_per_sample=extra.pop("bytes_per_sample", 1_048_576),
-            settle_seconds=0.05, **extra,
+            settle_seconds=0.05, sleeper=lambda _: None, **extra,
         )
 
     def test_failed_route_cannot_write_radio(self):
