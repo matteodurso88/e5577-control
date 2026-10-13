@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from http.client import HTTPException
 from ipaddress import IPv4Address, IPv4Interface, ip_address
 from pathlib import Path
 from socket import AF_INET
@@ -227,8 +228,11 @@ def _fetch_api(host: str, endpoint: str, timeout: float) -> tuple[bytes | None, 
             return payload, "HTTP 200"
     except HTTPError as exc:
         return None, f"HTTP {exc.code}"
-    except (URLError, OSError, TimeoutError) as exc:
-        # Don't expose token, response body or secret values in diagnostics.
+    except (URLError, OSError, TimeoutError, HTTPException) as exc:
+        # Some local gateways return malformed HTTP status lines, such as
+        # "UNKNOWN 400 Bad Request". Treat this as a failed *candidate*,
+        # never as a fatal error for the entire discovery.
+        # Avoid exposing HTTP response bodies, cookies or tokens in logs.
         return None, type(exc).__name__
 
 
@@ -258,11 +262,21 @@ def probe(host: str, timeout: float = 1.5) -> DiscoveredPocket | None:
     return probe_detailed(host, timeout)[0]
 
 
+def _safe_probe(host: str, timeout: float) -> tuple[DiscoveredPocket | None, tuple[str, ...]]:
+    """An unexpected error on one IP must not abort discovery of all peers."""
+    try:
+        return probe_detailed(host, timeout)
+    except Exception as exc:
+        # Only print the exception type: messages from HTTP stacks may contain
+        # headers or other untrusted/sensitive response data.
+        return None, (f"{host}: errore probe ({type(exc).__name__})",)
+
+
 def discover_report(manual_hosts: tuple[str, ...] = (), timeout: float = 1.5,
                     workers: int = 6) -> DiscoveryReport:
     hosts = host_candidates(manual_hosts)
     with ThreadPoolExecutor(max_workers=max(1, min(workers, 8))) as executor:
-        outcomes = list(executor.map(lambda host: probe_detailed(host, timeout), hosts))
+        outcomes = list(executor.map(lambda host: _safe_probe(host, timeout), hosts))
     devices = tuple(item[0] for item in outcomes if item[0] is not None)
     diagnostics = tuple(line for item in outcomes for line in item[1])
     return DiscoveryReport(tuple(hosts), devices, diagnostics)
