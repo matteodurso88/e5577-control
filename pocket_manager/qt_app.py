@@ -21,13 +21,13 @@ from PySide6.QtWidgets import (
 
 from . import __version__
 from .backend import HuaweiRadioBackend
-from .discovery import discover
+from .discovery import discover_report
 from .profiles import PocketProfile, ProfileStore, CredentialStoreError
 from .radio import FALLBACK_BANDS, FREQUENCIES, MODES, PRESETS, mask_hex, supported_bands, bands_from_mask, safe_json_data
 
 
 class DiscoveryWorker(QThread):
-    completed = Signal(list)
+    completed = Signal(object)
     failed = Signal(str)
 
     def __init__(self, saved_hosts: tuple[str, ...]):
@@ -36,7 +36,7 @@ class DiscoveryWorker(QThread):
 
     def run(self):
         try:
-            self.completed.emit(discover(self.saved_hosts))
+            self.completed.emit(discover_report(self.saved_hosts))
         except Exception as exc:
             self.failed.emit(type(exc).__name__)
 
@@ -374,7 +374,8 @@ class PocketWindow(QMainWindow):
     def _discover(self):
         if self.discovery_worker and self.discovery_worker.isRunning():
             return
-        hosts = tuple(p.host for p in self.store.list())
+        # Include the manually entered address even if it is not saved yet.
+        hosts = (self.host.text().strip(),) + tuple(p.host for p in self.store.list())
         self.discover_btn.setEnabled(False)
         self._log("Discovery locale in corso (solo lettura)...")
         self.discovery_worker = DiscoveryWorker(hosts)
@@ -383,12 +384,24 @@ class PocketWindow(QMainWindow):
         self.discovery_worker.finished.connect(lambda: self.discover_btn.setEnabled(True))
         self.discovery_worker.start()
 
-    def _discovery_done(self, devices: list):
+    def _discovery_done(self, report):
+        devices = list(report.devices)
+        self._log(f"Discovery completato: {len(report.candidates)} IP controllati, {len(devices)} compatibili.")
+        for detail in report.diagnostics:
+            self._log(detail)
         if not devices:
-            self._log("Nessun Huawei confermato. Puoi inserire l'IP manualmente.")
-            QMessageBox.information(self, "Discovery", "Nessun pocket identificato. Inserisci l'IP manualmente.")
+            QMessageBox.information(
+                self, "Discovery — nessun pocket rilevato",
+                "Non è stata riconosciuta un'API Huawei raggiungibile. "
+                "Il dispositivo deve essere collegato al Dell tramite Wi-Fi/USB/rete locale.\n\n"
+                "Diagnostica probe:\n" + "\n".join(report.diagnostics[:20]),
+            )
             return
-        labels = [f"{d.name} · {d.host} · {d.model}" for d in devices]
+        labels = [
+            f"{d.name} · {d.host} · {d.model} "
+            + ("[API compatibile]" if d.detection != "identified" else "[identificato]")
+            for d in devices
+        ]
         label, ok = QInputDialog.getItem(self, "Pocket rilevati", "Scegli il dispositivo:", labels, 0, False)
         if ok and label in labels:
             found = devices[labels.index(label)]
@@ -397,7 +410,9 @@ class PocketWindow(QMainWindow):
             self.alias.setText(found.name)
             self.password.clear()
             self.remember.setChecked(False)
-            self._log(f"Dispositivo Huawei identificato: {found.model} · {found.host}")
+            status = ("identificato" if found.detection == "identified"
+                      else "API Huawei compatibile; modello da confermare dopo il login")
+            self._log(f"Pocket {status}: {found.model} · {found.host}")
 
     def _connect(self):
         if self.radio_worker is not None:
