@@ -81,6 +81,9 @@ class HuaweiRadioBackend:
                         cancel: threading.Event | None = None) -> RadioConfig:
         if self.client is None:
             raise RadioError("Pocket non connesso")
+        # An interrupted scan must not send a new radio command.
+        if cancel is not None and cancel.is_set():
+            raise RadioError("Scansione interrotta prima della modifica radio")
         try:
             self.client.net.set_net_mode(
                 lteband=target.lte_band,
@@ -136,6 +139,10 @@ class HuaweiRadioBackend:
                     break
                 progress({"status": "Configurazione", "band": band,
                           "step": idx, "total": len(bands)})
+                # The callback may request cancellation synchronously.
+                # Do not change bands or create an error row in this case.
+                if cancel.is_set():
+                    break
                 try:
                     target = RadioConfig(mask_hex([band]), baseline.network_band, "03")
                     self._write_verified(target, cancel=cancel)
@@ -162,6 +169,11 @@ class HuaweiRadioBackend:
                            "cellid": last.get("cellid") or last.get("cell_id"),
                            "status": "OK"}
                 except Exception as exc:
+                    # Cancelling mid read-back may already have changed the
+                    # modem. Exit without an error row and let finally perform
+                    # a non-cancellable restoration of the initial baseline.
+                    if cancel.is_set():
+                        break
                     row = {"band": band, "status": "Errore", "error": str(exc)}
                 rows.append(row)
                 progress({"status": row["status"], "band": band,
