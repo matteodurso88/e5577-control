@@ -11,6 +11,29 @@ GUI radio-only per **Huawei E5577Cs-321**. Non sostituisce la Web UI: si concent
 - Target desktop: Linux, Windows, macOS. Verifica OS-specifica da eseguire; nessun PASS implicito.
 - Perimetro v0.1 da completare nella sessione notturna; future estensioni Web UI fuori scope.
 
+## Interfaccia semplice e strumenti avanzati — UX pass (13 ottobre 2026)
+
+Il design ha due livelli **senza duplicare logica radio e senza perdere controlli**:
+
+- **Interfaccia quotidiana (default):** Stato connessione, Andamento, Confronta bande. Lingua italiana, connessione/disconnessione e ricerca/salvataggio dei pocket; indicatore di connessione, 4G, operatore, segnale e traffico con descrizioni leggibili. Salvataggio password protetto nel portachiavi di sistema.
+- **Mostra strumenti avanzati (checkbox):** espone indirizzo IP, username, controllo manuale delle bande, scanner RF, misure RSRP/RSRQ/SINR/PCI, diagnostica JSON e registro integrale. La commutazione mostra/nasconde le stesse istanze Qt e preserva configurazione e funzioni; non cambia firmware o modalità radio.
+- **Confronta bande** mantiene route-check, conferma consapevole del consumo dati, ripetizioni, ripristino e risultati. `TTFB mediano (ms)` è ora visibile come **Tempo di risposta (ms)**, con tooltip che spiega la prima risposta HTTPS inclusi TCP/TLS/tempo server; non è ping e non sono millisecondi radio.
+- **Velocità tipica (Mbps)** è la mediana dei test completati e non il massimo osservato. Il risultato più veloce è segnalato come relativo alla sessione e non come scelta valida in ogni ora. Le tacche del modem sono soltanto un indicatore approssimativo: non sostituiscono RSRP/SINR.
+- **Andamento** mantiene gli stessi dati originali ma rinomina `bars` in `Segnale`, download/upload in `Scaricamento`/`Invio` e semplifica gli eventi. Le diagnostiche e le informazioni non disponibili rimangono accessibili in modalità avanzata.
+- I messaggi di errore comuni vengono tradotti in italiano mentre il dettaglio tecnico resta nel registro avanzato. Gli avvisi di **rollback non verificato** restano espliciti e prioritari.
+
+**Stato verifica:** implementazione UX versionata su branch `work/pocket-manager-radio-v01`, nessun merge a `main`. Il gate corrente include **64 metodi di test** (7 per la semantica delle etichette, 3 smoke Qt offscreen oltre ai 54 preesistenti); **non ancora eseguito sul Dell per questo commit**. Gli smoke UI non sostituiscono validazione manuale e hardware dei comandi radio.
+
+Comandi di verifica:
+
+```bash
+cd ~/progetti/workshop/pocket-manager
+git pull --ff-only
+.venv/bin/python scripts/local_gate.py
+.venv/bin/python -m pocket_manager
+```
+
+Smoke visuale: la modalità semplice deve presentare tre schede; attivando `Mostra strumenti avanzati` ricompaiono gli strumenti completi e la diagnostica. Verificare `Tempo di risposta` e il relativo tooltip. Il primo test sul dispositivo deve limitarsi a discovery/lettura e al pulsante di verifica connessione, **senza cambiare banda** finché gate e routing non sono validati.
 ## Discovery: riconoscimento anonimo e diagnostica
 
 Il discovery evita la richiesta di `device/information` come prerequisito: alcuni firmware la proteggono con login. La ricerca tenta sequenzialmente `api/device/information`, `api/device/signal` (lettura radio anonima quando consentita) e `api/webserver/SesTokInfo` (struttura di sessione Huawei, senza conservare cookie/token). La risposta del secondo o terzo endpoint permette di qualificare **un'API compatibile**, non di certificare il modello: quest'ultimo è da verificare dopo autenticazione.
@@ -78,7 +101,7 @@ Scopo: confrontare in momenti diversi la qualità della **connessione con una si
 - La scheda **Benchmark LTE**, separata dallo scanner RF, conserva in memoria fino a 24 run con timestamp locale, esportabili volontariamente nel JSON diagnostico. Per conclusioni robuste ripetere gli stessi test in fasce orarie differenti e senza altri client in traffico intenso.
 - La classifica è per maggiore download mediano **tra prove complete**, con TTFB mostrato separatamente: non è selezione automatica della banda migliore e non altera la configurazione finale. Nessuna modifica radio permane intenzionalmente dopo una sessione di benchmark.
 
-**Gate attuale:** sorgenti e test mock presenti solo su branch work/pocket-manager-radio-v01; nuovo gate Dell **54 test attesi ma non ancora eseguiti sul commit corrente**. Verificare inizialmente soltanto l'avvio della GUI e il pulsante Verifica uscita Internet nella scheda Benchmark LTE; NON avviare benchmark che cambi le bande fino a verifica del percorso WAN e approvazione del protocollo operativo.
+**Gate attuale:** sorgenti e test mock presenti solo su branch work/pocket-manager-radio-v01; nuovo gate Dell **64 test totali attesi (compresa UI Qt), non ancora eseguiti sul commit corrente**. Verificare inizialmente soltanto l'avvio della GUI e il pulsante Verifica uscita Internet nella scheda Benchmark LTE; NON avviare benchmark che cambi le bande fino a verifica del percorso WAN e approvazione del protocollo operativo.
 ## Storico live — monitoraggio in sola lettura (work/*)
 
 - Aggiunto monitoraggio autenticato di `monitoring/traffic-statistics`: lettura ogni ~3 s insieme a `device/signal` e `monitoring/status`.
