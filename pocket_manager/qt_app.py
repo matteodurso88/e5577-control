@@ -23,7 +23,7 @@ from . import __version__
 from .backend import HuaweiRadioBackend
 from .discovery import discover_report
 from .profiles import PocketProfile, ProfileStore, CredentialStoreError
-from .radio import FALLBACK_BANDS, FREQUENCIES, MODES, PRESETS, mask_hex, supported_bands, bands_from_mask, safe_json_data
+from .radio import FALLBACK_BANDS, FREQUENCIES, MODES, PRESETS, mask_hex, supported_bands, bands_from_mask, safe_json_data, has_radio_measurements
 
 
 class DiscoveryWorker(QThread):
@@ -133,6 +133,8 @@ class PocketWindow(QMainWindow):
         self.snapshot: dict = {}
         self.scan_results: list[dict] = []
         self.available: tuple[int, ...] = ()
+        self.has_measurements = False
+        self.detected_model = ""
         self.setWindowTitle("Pocket Radio Manager " + __version__)
         self.resize(1120, 770)
         self._build()
@@ -238,6 +240,7 @@ class PocketWindow(QMainWindow):
         box.addLayout(checks)
         row = QHBoxLayout()
         self.preset = QComboBox()
+        self.preset.addItem("Personalizzato")
         self.preset.addItems(PRESETS.keys())
         self.preset.currentTextChanged.connect(self._preset)
         self.mode = QComboBox()
@@ -299,6 +302,9 @@ class PocketWindow(QMainWindow):
         for widget in (self.apply_btn, self.restore_btn, self.scan_btn, self.refresh_btn):
             widget.setEnabled(online and not self.busy)
         self.cancel_btn.setEnabled(online and self.busy)
+        # Never run a measurement scan while the firmware supplies no RF
+        # readings: it would change bands but return misleading empty rows.
+        self.scan_btn.setEnabled(online and not self.busy and self.has_measurements)
 
     def _reload_profiles(self, chosen: str | None = None):
         self.saved.blockSignals(True)
@@ -445,8 +451,14 @@ class PocketWindow(QMainWindow):
 
     def _ready(self, snapshot):
         self.password.clear()
-        self.status.setText("● Pocket collegato · monitor LTE attivo")
-        self._log("Sessione radio attiva")
+        self.status.setText("● API Huawei autenticata · verifica misure radio...")
+        self._log("Sessione API Huawei attiva (non prova aggancio LTE)")
+        info = snapshot.get("device_information")
+        if isinstance(info, dict):
+            model = str(info.get("DeviceName") or info.get("Model") or "").strip()
+            if model:
+                self.detected_model = model
+                self._log("Modello dichiarato dal firmware: " + model[:72])
         self.available = supported_bands(snapshot.get("mode_list"))
         if self.available:
             self.support.setText("Bande annunciate via API: " +
@@ -477,6 +489,14 @@ class PocketWindow(QMainWindow):
     def _reading(self, data):
         self.snapshot.update(data)
         signal = self.snapshot.get("signal", {})
+        self.has_measurements = has_radio_measurements(signal)
+        if self.online:
+            self.status.setText(
+                "● API Huawei connessa · misure LTE disponibili"
+                if self.has_measurements else
+                "● API Huawei connessa · misure LTE assenti (verificare rete mobile)"
+            )
+            self._set_online(self.online)
         if isinstance(signal, dict):
             lower = {str(k).lower(): v for k, v in signal.items()}
             for key, label in self.metrics.items():
@@ -508,6 +528,16 @@ class PocketWindow(QMainWindow):
     def _mask(self):
         selected = [band for band, check in self.band_checks.items() if check.isChecked()]
         self.mask_label.setText("LTEBand=" + (mask_hex(selected) if selected else "—"))
+        current = tuple(selected)
+        matching = next(
+            (name for name, preset in PRESETS.items() if tuple(preset) == current),
+            "Personalizzato",
+        )
+        # Programmatic change must not invoke _preset and overwrite the
+        # configuration read back from the connected modem.
+        self.preset.blockSignals(True)
+        self.preset.setCurrentText(matching)
+        self.preset.blockSignals(False)
 
     def _selection(self):
         selected = [b for b, check in self.band_checks.items() if check.isChecked()]
@@ -543,6 +573,11 @@ class PocketWindow(QMainWindow):
 
     def _scan(self):
         if not self.online or self.busy or self.radio_worker is None:
+            return
+        if not self.has_measurements:
+            QMessageBox.warning(self, "Misure LTE assenti",
+                                "Il firmware non sta fornendo misure RF. "
+                                "Controlla SIM, stato rete e segnale prima di avviare lo scanner.")
             return
         bands = self._selection()
         if bands is None:
