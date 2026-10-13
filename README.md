@@ -11,6 +11,28 @@ GUI radio-only per **Huawei E5577Cs-321**. Non sostituisce la Web UI: si concent
 - Target desktop: Linux, Windows, macOS. Verifica OS-specifica da eseguire; nessun PASS implicito.
 - Perimetro v0.1 da completare nella sessione notturna; future estensioni Web UI fuori scope.
 
+## Discovery: riconoscimento anonimo e diagnostica
+
+Il discovery evita la richiesta di `device/information` come prerequisito: alcuni firmware la proteggono con login. La ricerca tenta sequenzialmente `api/device/information`, `api/device/signal` (lettura radio anonima quando consentita) e `api/webserver/SesTokInfo` (struttura di sessione Huawei, senza conservare cookie/token). La risposta del secondo o terzo endpoint permette di qualificare **un'API compatibile**, non di certificare il modello: quest'ultimo è da verificare dopo autenticazione.
+
+I candidati vengono generati senza uno sweep indiscriminato: IP manuale, dispositivi già salvati, indirizzo storico `192.168.8.1`, gateway IPv4 attivi rilevati su Linux e possibili gateway `.1`/`.254` sulle /24 locali. L'elenco è limitato a 32 IP, con timeout esplicito e bypass dei proxy HTTP.
+
+Dalla GUI, premendo **Cerca pocket**, il registro mostra gli IP provati e gli esiti `HTTP 403`, `URLError`, `risposta non identificante` oppure `API compatibile`. Non vengono stampati token di sessione, password o identificativi device.
+
+Per una diagnosi fuori dalla GUI:
+
+```bash
+cd ~/progetti/workshop/pocket-manager
+git pull --ff-only
+source .venv/bin/activate
+python scripts/local_gate.py
+python -m pocket_manager.discovery
+ip -br -4 addr
+ip -4 route
+```
+
+Il pocket deve essere effettivamente **raggiungibile dal Dell**, ad esempio tramite Wi-Fi del pocket o tethering USB. Con due reti attive il gateway predefinito può riferirsi al router domestico e non al pocket. Il discovery può trovare un candidato ma non completare l'identificazione finché il login non viene effettuato.
+
 ## Discovery / Pocket salvati — requisiti v0.1
 
 1. Individuare pocket raggiungibili tramite probe non invasivi sulle interfacce locali, controllando identità modello via API Huawei. Supportare IP manuale.
@@ -39,18 +61,16 @@ Per i test core:
 
 ```bash
 cd pocket-manager
-python3 -m venv .venv
+uv venv --python 3.12.15 .venv
 source .venv/bin/activate
-python -m pip install -e .
-python -m unittest discover -s tests -v
+uv pip install -e .
+python scripts/local_gate.py
 ```
 
 
 ```bash
 cd pocket-manager
-python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -e .
 python -m pocket_manager
 ```
 
@@ -84,10 +104,9 @@ La compatibilità eseguibile Linux/Windows/macOS richiede smoke test sulle rispe
 ### Gate locale prima di PR
 
 ```bash
-cd ~/progetti/workshop/pocket-manager  # adattare alla propria directory clone
-python3 -m venv .venv
+cd ~/progetti/workshop/pocket-manager
 source .venv/bin/activate
-python -m pip install -e .
+git pull --ff-only
 python scripts/local_gate.py
 python -m pocket_manager
 ```
