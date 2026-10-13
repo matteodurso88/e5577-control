@@ -157,11 +157,26 @@ class BenchmarkTests(unittest.TestCase):
         self.assertTrue(self.radio.current.matches(self.radio.baseline))
         self.assertEqual(self.radio.writes, ["4", "40"])
 
-    def test_no_lte_after_lock_is_recorded_not_measured(self):
+    def test_offline_baseline_must_not_switch_bands(self):
         self.radio.snapshot = lambda: {
             "monitoring_status": {"ConnectionStatus": "902", "CurrentNetworkType": "19"},
             "plmn": {"Rat": "7"},
         }
+        with self.assertRaisesRegex(BenchmarkError, "non connesso in LTE"):
+            self.run_bands([3])
+        self.assertEqual(self.radio.writes, [])
+
+    def test_no_lte_after_lock_is_recorded_not_measured(self):
+        def snapshot():
+            connected = self.radio.current.matches(self.radio.baseline)
+            return {
+                "monitoring_status": {
+                    "ConnectionStatus": "901" if connected else "902",
+                    "CurrentNetworkType": "19",
+                },
+                "plmn": {"Rat": "7"},
+            }
+        self.radio.snapshot = snapshot
         rows = self.run_bands([3])
         self.assertEqual(rows[0].status, "Nessuna connessione LTE")
         self.assertIsNone(rows[0].med_mbps)
