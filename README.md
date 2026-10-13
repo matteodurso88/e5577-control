@@ -2,8 +2,13 @@
 
 GUI radio-only per **Huawei E5577Cs-321**. Non sostituisce la Web UI: si concentra su funzioni LTE avanzate escluse o nascoste dall'interfaccia Huawei.
 
-> **Stato GitHub (2026-10-13):** i sorgenti GUI PySide6, adapter Huawei, scanner, discovery, profili salvati e suite di test sono sul branch `work/pocket-manager-radio-v01`. **L'owner ha verificato il gate core 26/26, login GUI reale, rilevamento modello e monitor stato. Lo storico live successivo richiede ancora il nuovo gate sul Dell; scan e controllo radio su hardware non sono certificati.** Lo ZIP sperimentale precedente non è fonte canonica.
+> **Stato GitHub (2026-10-13):** i sorgenti GUI PySide6, adapter Huawei, scanner, discovery, profili salvati e suite di test sono sul branch `work/pocket-manager-radio-v01`. **L'owner ha confermato i collaudi UX su Dell. Il gate dell'ultimo commit e le nuove build Linux/Windows richiedono verifica sulle rispettive piattaforme; non sono release certificate.** Lo ZIP sperimentale precedente non è fonte canonica.
 
+## Build desktop Linux e Windows
+
+**Packaging candidato** su GitHub Actions per Linux x86-64 (tar.gz portabile) e Windows x64 (zip con PocketRadioManager.exe). Il workflow compila sui runner nativi, esegue il gate test Python/Qt, lo smoke offline del programma congelato e allega checksum SHA-256. Nessun pacchetto viene incluso nel repository, e gli archivi restano unsigned/non-installer finché non sono collaudati.
+
+Procedura per scaricare gli artifact, limitazioni, controlli di sicurezza e istruzioni di compilazione manuale: **[DESKTOP_BUILDS.md](docs/DESKTOP_BUILDS.md)**. Workflow: **[pocket-radio-manager-desktop.yml](../.github/workflows/pocket-radio-manager-desktop.yml)**.
 ## Workflow canonico
 
 - Codice/versionamento: `matteodurso88/workshop/pocket-manager/` su `work/*`.
