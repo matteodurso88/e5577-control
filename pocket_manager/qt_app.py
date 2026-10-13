@@ -148,7 +148,14 @@ class RadioWorker(QThread):
                                 )
                             self.finished_job.emit(command, True, message, data)
                         except Exception as exc:
-                            self.finished_job.emit(command, False, str(exc).replace(original_secret, "[redacted]") if original_secret else str(exc), {})
+                            if command == "sms_fetch":
+                                # Firmware errors may contain untrusted message
+                                # data. Never forward their payload to logs/UI.
+                                problem = "Lettura SMS non riuscita (" + type(exc).__name__ + ")"
+                            else:
+                                problem = (str(exc).replace(original_secret, "[redacted]")
+                                           if original_secret else str(exc))
+                            self.finished_job.emit(command, False, problem, {})
                         self.reading.emit(radio.snapshot(full=True))
                     due = time.monotonic() + 3
         except Exception as exc:
