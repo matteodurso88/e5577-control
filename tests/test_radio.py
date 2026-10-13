@@ -112,6 +112,37 @@ class BackendTest(unittest.TestCase):
         result = self.backend.scan([3, 7], cancelled, report)
         self.assertEqual(result, [])
         self.assertEqual(self.backend.config().lte_band, "800d5")
+        self.assertEqual(self.backend.client.net.writes, [])
+
+    @patch("pocket_manager.backend.time.sleep", lambda _: None)
+    def test_cancel_during_readback_restores_baseline(self):
+        cancelled = threading.Event()
+        net = self.backend.client.net
+        original_write = net.set_net_mode
+
+        def write_then_cancel(**kwargs):
+            original_write(**kwargs)
+            cancelled.set()
+
+        net.set_net_mode = write_then_cancel
+        result = self.backend.scan([3, 7], cancelled, lambda _: None)
+        self.assertEqual(result, [])
+        self.assertEqual(net.current["LTEBand"], "800d5")
+        self.assertEqual([write[0] for write in net.writes], ["4", "800d5"])
+
+    @patch("pocket_manager.backend.time.sleep", lambda _: None)
+    def test_cancel_after_completed_band_keeps_only_completed_results(self):
+        cancelled = threading.Event()
+
+        def report(event):
+            if event.get("status") == "OK":
+                cancelled.set()
+
+        result = self.backend.scan([3, 7], cancelled, report)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["band"], 3)
+        self.assertEqual(result[0]["status"], "OK")
+        self.assertEqual(self.backend.config().lte_band, "800d5")
 
     def test_reject_nonlocal_host(self):
         with self.assertRaises(ValueError):
