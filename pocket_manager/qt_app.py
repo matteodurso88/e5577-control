@@ -368,8 +368,10 @@ class PocketWindow(QMainWindow):
         self.route_btn.clicked.connect(self._route_check)
         self.benchmark_btn = QPushButton("Benchmark bande selezionate")
         self.benchmark_btn.clicked.connect(self._benchmark)
+        self.bench_cancel_btn = QPushButton("Interrompi benchmark")
+        self.bench_cancel_btn.clicked.connect(self._cancel)
         for item in (QLabel("Budget"), self.test_size, self.test_repeats,
-                     self.route_btn, self.benchmark_btn):
+                     self.route_btn, self.benchmark_btn, self.bench_cancel_btn):
             bench_buttons.addWidget(item)
         bench_layout.addLayout(bench_buttons)
         self.benchmark_label = QLabel("Nessun benchmark eseguito. Uscita WAN da verificare.")
@@ -466,6 +468,7 @@ class PocketWindow(QMainWindow):
                        self.refresh_btn, self.route_btn, self.benchmark_btn):
             widget.setEnabled(online and not self.busy)
         self.cancel_btn.setEnabled(online and self.busy)
+        self.bench_cancel_btn.setEnabled(online and self.busy)
         # Never run a measurement scan while the firmware supplies no RF
         # readings: it would change bands but return misleading empty rows.
         self.scan_btn.setEnabled(online and not self.busy and self.has_measurements)
@@ -826,6 +829,7 @@ class PocketWindow(QMainWindow):
             self.radio_worker.cancel.set()
             self.scan_status.setText("Stop richiesto · rollback in corso/non appena possibile")
             self.cancel_btn.setEnabled(False)
+            self.bench_cancel_btn.setEnabled(False)
 
     def _progress(self, item):
         details = str(item.get("status", ""))
