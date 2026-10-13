@@ -12,6 +12,7 @@ import threading
 import time
 
 from PySide6.QtCore import QThread, Signal, Qt
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QFileDialog, QGridLayout,
     QGroupBox, QHBoxLayout, QHeaderView, QInputDialog, QLabel, QLineEdit,
@@ -200,6 +201,14 @@ class PocketWindow(QMainWindow):
         self.sms_page = 1
         self.mobile_enabled = None
         self.setWindowTitle("Pocket Radio Manager · " + __version__)
+        resource_root = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[1]))
+        for icon_asset in (
+            resource_root / "pocket-radio-manager.png",
+            resource_root / "assets" / "pocket-radio-manager-icon.svg",
+        ):
+            if icon_asset.is_file():
+                self.setWindowIcon(QIcon(str(icon_asset)))
+                break
         self.resize(1180, 780)
         self._build()
         self._set_advanced(False)
