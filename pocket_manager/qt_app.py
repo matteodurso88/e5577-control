@@ -102,7 +102,7 @@ class RadioWorker(QThread):
                                    "mobile_switch"):
                         try:
                             if command == "sms_fetch":
-                                data = radio.sms_inbox(limit=20)
+                                data = radio.sms_inbox(page=opts.get("page", 1), limit=20)
                                 message = f"Caricati {len(data)} messaggi"
                             elif command == "sms_refresh":
                                 data = radio.sms_counts()
@@ -195,6 +195,7 @@ class PocketWindow(QMainWindow):
         self.detected_model = ""
         self.timeline = TelemetryTimeline(120)
         self.messages = []
+        self.sms_page = 1
         self.mobile_enabled = None
         self.setWindowTitle("Pocket Radio Manager · " + __version__)
         self.resize(1180, 780)
@@ -443,6 +444,17 @@ class PocketWindow(QMainWindow):
         toolbar.addWidget(self.sms_status, 1)
         toolbar.addWidget(self.sms_reload)
         box.addLayout(toolbar)
+        pager = QHBoxLayout()
+        self.sms_prev = QPushButton("← Precedenti")
+        self.sms_prev.clicked.connect(lambda: self._sms_page(-1))
+        self.sms_page_label = QLabel("Pagina 1")
+        self.sms_next = QPushButton("Successivi →")
+        self.sms_next.clicked.connect(lambda: self._sms_page(1))
+        pager.addWidget(self.sms_prev)
+        pager.addWidget(self.sms_page_label)
+        pager.addWidget(self.sms_next)
+        pager.addStretch(1)
+        box.addLayout(pager)
         self.sms_table = QTableWidget(0, 3)
         self.sms_table.setHorizontalHeaderLabels(["Da", "Data", "Stato"])
         self.sms_table.horizontalHeader().setSectionResizeMode(
@@ -473,12 +485,19 @@ class PocketWindow(QMainWindow):
         if not self.online:
             return
         self.tabs.setCurrentIndex(2)
+        self.sms_page = 1
+        self._fetch_sms()
+
+    def _sms_page(self, offset: int):
+        if not self.online or self.busy:
+            return
+        self.sms_page = max(1, min(100, self.sms_page + offset))
         self._fetch_sms()
 
     def _fetch_sms(self):
         if self.radio_worker and self.online and not self.busy:
             self.sms_status.setText("Caricamento dei messaggi...")
-            self.radio_worker.submit("sms_fetch")
+            self.radio_worker.submit("sms_fetch", page=self.sms_page)
 
     def _select_sms(self, row, column, previous_row, previous_column):
         if 0 <= row < len(self.messages):
@@ -499,8 +518,11 @@ class PocketWindow(QMainWindow):
             )):
                 self.sms_table.setItem(index, col, QTableWidgetItem(value))
         self.sms_status.setText(
-            f"Mostrati {len(self.messages)} messaggi ricevuti (massimo 20)."
+            f"Pagina {self.sms_page}: {len(self.messages)} messaggi ricevuti."
         )
+        self.sms_page_label.setText(f"Pagina {self.sms_page}")
+        self.sms_prev.setEnabled(self.online and self.sms_page > 1)
+        self.sms_next.setEnabled(self.online and len(self.messages) == 20)
         if self.messages:
             self.sms_table.selectRow(0)
             self.sms_text.setPlainText(self.messages[0].content)
@@ -509,6 +531,8 @@ class PocketWindow(QMainWindow):
 
     def _reset_sms(self):
         self.messages.clear()
+        self.sms_page = 1
+        self.sms_page_label.setText("Pagina 1")
         self.sms_table.setRowCount(0)
         self.sms_text.clear()
         self.sms_value.setText("—")
@@ -762,6 +786,10 @@ class PocketWindow(QMainWindow):
         self.scan_btn.setEnabled(online and not self.busy and self.has_measurements)
         self.sms_open.setEnabled(online)
         self.sms_reload.setEnabled(online and not self.busy)
+        self.sms_prev.setEnabled(online and not self.busy and self.sms_page > 1)
+        self.sms_next.setEnabled(
+            online and not self.busy and len(self.messages) == 20
+        )
         self.data_toggle.setEnabled(
             online and not self.busy and self.mobile_enabled is not None
         )
