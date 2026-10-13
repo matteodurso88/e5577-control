@@ -8,7 +8,7 @@ from pocket_manager.backend import HuaweiRadioBackend, RadioError
 from pocket_manager.radio import (
     RadioConfig, bands_from_mask, mask_hex, normalized_mask,
     numeric_metric, parse_mask, safe_json_data, supported_bands,
-    has_radio_measurements, network_overview,
+    has_radio_measurements, network_overview, band_indicator,
 )
 
 
@@ -46,6 +46,53 @@ class MasksTest(unittest.TestCase):
         self.assertFalse(has_radio_measurements({}))
         self.assertFalse(has_radio_measurements({"__error__": "unavailable"}))
         self.assertTrue(has_radio_measurements({**signal, "rsrp": "-90dBm"}))
+
+    def test_single_allowed_band_is_deduced_only_when_4g_connected(self):
+        cfg = {"LTEBand": "40", "NetworkMode": "00"}
+        status = {"ConnectionStatus": "901", "CurrentNetworkType": "19"}
+        plmn = {"Rat": "7"}
+        out = band_indicator(cfg, status, plmn, {"lte_bandinfo": None})
+        self.assertEqual((out.band, out.source), (7, "deduced"))
+        self.assertEqual(out.label, "B7 · dedotta")
+        self.assertIn("unica banda possibile", out.detail)
+        disconnected = band_indicator(cfg, {"ConnectionStatus": "902"}, plmn, {})
+        self.assertEqual(disconnected.source, "unknown")
+        self.assertIsNone(disconnected.band)
+
+    def test_multiple_allowed_bands_do_not_fabricate_serving_band(self):
+        status = {"ConnectionStatus": "901", "CurrentNetworkType": "19"}
+        plmn = {"Rat": "7"}
+        out = band_indicator({"LTEBand": "800d5"}, status, plmn, {"lte_bandinfo": None})
+        self.assertEqual(out.label, "Non rilevabile")
+        self.assertEqual(out.source, "unknown")
+        self.assertEqual(out.allowed, (1, 3, 5, 7, 8, 20))
+
+    def test_explicit_lte_bandinfo_can_override_multiple_allowed_bands(self):
+        status = {"ConnectionStatus": "901", "CurrentNetworkType": "19"}
+        plmn = {"Rat": "7"}
+        out = band_indicator({"LTEBand": "800d5"}, status, plmn,
+                             {"lte_bandinfo": "LTE Band 3"})
+        self.assertEqual(out.label, "B3 · rilevata")
+        self.assertEqual(out.source, "api")
+
+    def test_unsupported_or_inconsistent_firmware_band_is_not_claimed(self):
+        status = {"ConnectionStatus": "901", "CurrentNetworkType": "19"}
+        plmn = {"Rat": "7"}
+        unknown = band_indicator({"LTEBand": "800d5"}, status, plmn,
+                                 {"lte_bandinfo": "B28"})
+        self.assertEqual(unknown.source, "unknown")
+        unknown = band_indicator({"LTEBand": "800d5"}, status, plmn,
+                                 {"lte_bandinfo": "1800 MHz"})
+        self.assertEqual(unknown.source, "unknown")
+        self.assertEqual(band_indicator({}, status, plmn, {}).source, "unknown")
+
+    def test_unknown_extra_mask_bits_never_create_single_band_deduction(self):
+        # Band 3 plus an unrecognised band outside this firmware's known list.
+        mask = hex((1 << (3 - 1)) | (1 << (28 - 1)))
+        state = {"ConnectionStatus": "901", "CurrentNetworkType": "19"}
+        out = band_indicator({"LTEBand": mask}, state, {"Rat": "7"}, {})
+        self.assertEqual(out.source, "unknown")
+        self.assertIn("e altre", out.detail)
 
     def test_real_e5577_status_has_connection_without_rf_measurements(self):
         # Sanitized Dell observation: firmware 21.328.62.00.55.
