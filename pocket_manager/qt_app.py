@@ -24,6 +24,7 @@ from .backend import HuaweiRadioBackend
 from .discovery import discover_report
 from .profiles import PocketProfile, ProfileStore, CredentialStoreError
 from .radio import FALLBACK_BANDS, FREQUENCIES, MODES, PRESETS, mask_hex, supported_bands, bands_from_mask, safe_json_data, has_radio_measurements, network_overview
+from .telemetry import TelemetryTimeline, format_rate, traffic_rates
 
 
 class DiscoveryWorker(QThread):
@@ -142,6 +143,7 @@ class PocketWindow(QMainWindow):
         self.available: tuple[int, ...] = ()
         self.has_measurements = False
         self.detected_model = ""
+        self.timeline = TelemetryTimeline(120)
         self.setWindowTitle("Pocket Radio Manager " + __version__)
         self.resize(1120, 770)
         self._build()
@@ -193,6 +195,7 @@ class PocketWindow(QMainWindow):
         outer.addWidget(self.status)
         tabs = QTabWidget()
         tabs.addTab(self._monitor_tab(), "Monitor LTE")
+        tabs.addTab(self._timeline_tab(), "Storico live")
         tabs.addTab(self._bands_tab(), "Bande / Scanner")
         tabs.addTab(self._diagnostics_tab(), "Dati API")
         outer.addWidget(tabs, 1)
@@ -226,6 +229,8 @@ class PocketWindow(QMainWindow):
             network_grid.addWidget(label, row * 2 + 1, col)
             self.network_labels[key] = label
         box.addWidget(network_group)
+        self.traffic_label = QLabel("Traffico dati: ↓ —   ↑ —")
+        box.addWidget(self.traffic_label)
         group = QGroupBox("Serving cell / Qualità segnale")
         grid = QGridLayout(group)
         self.metrics = {}
@@ -302,6 +307,52 @@ class PocketWindow(QMainWindow):
         box.addWidget(self.scan_table, 1)
         self._mask()
         return w
+
+    def _timeline_tab(self):
+        w = QWidget()
+        box = QVBoxLayout(w)
+        row = QHBoxLayout()
+        self.history_status = QLabel("Storico in RAM (max 120 campioni, circa 6 min a 3s); nessun salvataggio automatico.")
+        self.history_status.setWordWrap(True)
+        clear = QPushButton("Azzera storico")
+        clear.clicked.connect(self._clear_history)
+        row.addWidget(self.history_status, 1)
+        row.addWidget(clear)
+        box.addLayout(row)
+        self.timeline_table = QTableWidget(0, 7)
+        self.timeline_table.setHorizontalHeaderLabels(
+            ["Ora", "Connessione", "Rete", "Tacche", "Download", "Upload", "Variazioni"]
+        )
+        self.timeline_table.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.ResizeToContents
+        )
+        self.timeline_table.horizontalHeader().setSectionResizeMode(
+            6, QHeaderView.ResizeMode.Stretch
+        )
+        box.addWidget(self.timeline_table, 1)
+        return w
+
+    def _clear_history(self):
+        self.timeline.clear()
+        self.timeline_table.setRowCount(0)
+        self.history_status.setText("Storico azzerato (in RAM).")
+
+    def _append_history(self, data):
+        point = self.timeline.observe(data)
+        self.timeline_table.insertRow(0)
+        columns = (
+            point.timestamp[11:19], point.connection, point.network,
+            point.bars, format_rate(point.down_bps),
+            format_rate(point.up_bps), point.change or "—",
+        )
+        for col, value in enumerate(columns):
+            self.timeline_table.setItem(0, col, QTableWidgetItem(value))
+        while self.timeline_table.rowCount() > 120:
+            self.timeline_table.removeRow(self.timeline_table.rowCount() - 1)
+        self.history_status.setText(
+            f"Campioni: {len(self.timeline.points())}/120 · "
+            "solo lettura, traffico e tacche dipendono dal firmware"
+        )
 
     def _diagnostics_tab(self):
         w = QWidget()
@@ -477,6 +528,8 @@ class PocketWindow(QMainWindow):
             QMessageBox.warning(self, "Connessione", str(exc))
 
     def _ready(self, snapshot):
+        self.timeline.clear()
+        self.timeline_table.setRowCount(0)
         self.password.clear()
         self.status.setText("● API Huawei autenticata · verifica misure radio...")
         self._log("Sessione API Huawei attiva (non prova aggancio LTE)")
@@ -524,6 +577,12 @@ class PocketWindow(QMainWindow):
         )
         for key, label in self.network_labels.items():
             label.setText(overview[key])
+        down, up = traffic_rates(self.snapshot.get("traffic_statistics"))
+        self.traffic_label.setText(
+            f"Traffico dati: ↓ {format_rate(down)}   ↑ {format_rate(up)} "
+            "(Huawei API)"
+        )
+        self._append_history(self.snapshot)
         if self.online:
             connected = overview["connection"].startswith("Connessa")
             state = ("dati mobili connessi (firmware)" if connected
@@ -669,7 +728,8 @@ class PocketWindow(QMainWindow):
             return
         doc = {"version": __version__, "timestamp": datetime.now().isoformat(),
                "snapshot": safe_json_data(self.snapshot),
-               "scan": safe_json_data(self.scan_results)}
+               "scan": safe_json_data(self.scan_results),
+               "telemetry": self.timeline.export()}
         try:
             Path(path).write_text(json.dumps(doc, ensure_ascii=False, indent=2), encoding="utf-8")
             self._log("JSON diagnostico esportato con redazione campi sensibili noti")
