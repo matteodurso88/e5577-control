@@ -16,12 +16,13 @@ from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QFileDialog, QGridLayout,
     QGroupBox, QHBoxLayout, QHeaderView, QInputDialog, QLabel, QLineEdit,
     QFrame, QProgressBar, QStyle,
-    QMainWindow, QMessageBox, QPushButton, QTableWidget,
+    QMainWindow, QMessageBox, QPushButton, QAbstractItemView, QTableWidget,
     QTableWidgetItem, QTabWidget, QTextEdit, QVBoxLayout, QWidget,
 )
 
 from . import __version__
 from .backend import HuaweiRadioBackend
+from .device_features import mobile_data_state, sms_summary
 from .discovery import discover_report
 from .profiles import PocketProfile, ProfileStore, CredentialStoreError
 from .radio import FALLBACK_BANDS, FREQUENCIES, MODES, PRESETS, mask_hex, supported_bands, bands_from_mask, safe_json_data, has_radio_measurements, network_overview, band_indicator
@@ -81,6 +82,7 @@ class RadioWorker(QThread):
                 # _ready() already renders the initial read. Avoid a second,
                 # duplicate history sample with the same timestamp.
                 due = time.monotonic() + 3
+                next_sms_count = time.monotonic() + 30
                 while not self.stop.is_set():
                     try:
                         command, opts = self.jobs.get(timeout=max(0.05, due - time.monotonic()))
@@ -90,11 +92,26 @@ class RadioWorker(QThread):
                         break
                     if command == "poll":
                         self.reading.emit(radio.snapshot())
+                        if time.monotonic() >= next_sms_count:
+                            self.reading.emit({"sms_count": radio.sms_counts()})
+                            next_sms_count = time.monotonic() + 30
                     elif command == "refresh":
                         self.reading.emit(radio.snapshot(full=True))
-                    elif command in ("apply", "restore", "scan", "route_check", "benchmark"):
+                    elif command in ("apply", "restore", "scan", "route_check",
+                                   "benchmark", "sms_fetch", "sms_refresh",
+                                   "mobile_switch"):
                         try:
-                            if command == "route_check":
+                            if command == "sms_fetch":
+                                data = radio.sms_inbox(limit=20)
+                                message = f"Caricati {len(data)} messaggi"
+                            elif command == "sms_refresh":
+                                data = radio.sms_counts()
+                                message = "Contatore SMS aggiornato"
+                            elif command == "mobile_switch":
+                                state = radio.set_mobile_data(bool(opts["enabled"]))
+                                message = "Dati mobili attivati" if state else "Dati mobili disattivati"
+                                data = {"mobile_data": {"dataswitch": "1" if state else "0"}}
+                            elif command == "route_check":
                                 dest = resolve_endpoint()
                                 path = check_route(radio.host, dest)
                                 message = f"Uscita verificata: {path.interface} via {path.gateway}"
@@ -170,6 +187,8 @@ class PocketWindow(QMainWindow):
         self.has_measurements = False
         self.detected_model = ""
         self.timeline = TelemetryTimeline(120)
+        self.messages = []
+        self.mobile_enabled = None
         self.setWindowTitle("Pocket Radio Manager · " + __version__)
         self.resize(1180, 780)
         self._build()
@@ -241,15 +260,17 @@ class PocketWindow(QMainWindow):
         self.tabs = QTabWidget()
         self.tabs.addTab(self._monitor_tab(), "Stato connessione")
         self.tabs.addTab(self._timeline_tab(), "Andamento")
+        self.tabs.addTab(self._sms_tab(), "Messaggi")
         self.tabs.addTab(self._bands_tab(), "Controllo manuale")
         self.tabs.addTab(self._benchmark_tab(), "Confronta bande")
         self.tabs.addTab(self._diagnostics_tab(), "Dettagli tecnici")
         native = QStyle.StandardPixmap
         self.tabs.setTabIcon(0, self.style().standardIcon(native.SP_DriveNetIcon))
         self.tabs.setTabIcon(1, self.style().standardIcon(native.SP_FileDialogDetailedView))
-        self.tabs.setTabIcon(2, self.style().standardIcon(native.SP_FileDialogListView))
-        self.tabs.setTabIcon(3, self.style().standardIcon(native.SP_DialogApplyButton))
-        self.tabs.setTabIcon(4, self.style().standardIcon(native.SP_FileDialogInfoView))
+        self.tabs.setTabIcon(2, self.style().standardIcon(native.SP_MessageBoxInformation))
+        self.tabs.setTabIcon(3, self.style().standardIcon(native.SP_FileDialogListView))
+        self.tabs.setTabIcon(4, self.style().standardIcon(native.SP_DialogApplyButton))
+        self.tabs.setTabIcon(5, self.style().standardIcon(native.SP_FileDialogInfoView))
         outer.addWidget(self.tabs, 1)
         self.log_title = QLabel("Registro dettagliato · diagnostica")
         outer.addWidget(self.log_title)
@@ -275,10 +296,10 @@ class PocketWindow(QMainWindow):
         # Qt selects a nearby tab automatically as soon as the current tab
         # becomes hidden. Change to the dashboard BEFORE hiding either
         # advanced tab; otherwise currentIndex() is already 3 here.
-        if not enabled and self.tabs.currentIndex() in (2, 4):
+        if not enabled and self.tabs.currentIndex() in (3, 5):
             self.tabs.setCurrentIndex(0)
-        self.tabs.setTabVisible(2, enabled)
-        self.tabs.setTabVisible(4, enabled)
+        self.tabs.setTabVisible(3, enabled)
+        self.tabs.setTabVisible(5, enabled)
         self.host_caption.setVisible(enabled)
         self.host.setVisible(enabled)
         self.username_caption.setVisible(enabled)
