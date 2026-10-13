@@ -170,14 +170,22 @@ def lte_connected(status: dict, plmn: dict) -> bool:
 def _wait_lte(radio, cancel: threading.Event, seconds: float,
               *, sleeper=time.sleep, clock=time.monotonic) -> bool:
     deadline = clock() + seconds
+    stable = 0
     while clock() < deadline:
         if cancel.is_set():
             return False
         snapshot = radio.snapshot()
         if lte_connected(snapshot.get("monitoring_status"),
                          snapshot.get("plmn")):
-            return True
-        sleeper(2)
+            stable += 1
+            # One firmware status may be stale immediately after band change.
+            if stable >= 2:
+                return True
+        else:
+            stable = 0
+        remaining = deadline - clock()
+        if remaining > 0:
+            sleeper(min(2.0, remaining))
     return False
 
 
@@ -240,6 +248,10 @@ def run_band_benchmark(radio, bands: list[int], cancel: threading.Event,
                 if not radio.config().matches(target):
                     changed = True
                     radio._write_verified(target, cancel=cancel)
+                if cancel.is_set():
+                    break
+                # Give the modem a short settling interval before sampling.
+                sleeper(3)
                 if cancel.is_set():
                     break
                 progress(f"B{band}: attesa riconnessione 4G")
