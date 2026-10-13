@@ -29,7 +29,8 @@ from .band_benchmark import (run_band_benchmark, resolve_endpoint,
                              check_route, ranking)
 from .presentation import (friendly_connection, friendly_signal,
                            friendly_rf, friendly_route,
-                           friendly_benchmark_result, friendly_band_status)
+                           friendly_benchmark_result, friendly_band_status,
+                           friendly_changes, friendly_error)
 
 
 class DiscoveryWorker(QThread):
@@ -243,7 +244,8 @@ class PocketWindow(QMainWindow):
         self.tabs.addTab(self._benchmark_tab(), "Confronta bande")
         self.tabs.addTab(self._diagnostics_tab(), "Dettagli tecnici")
         outer.addWidget(self.tabs, 1)
-        outer.addWidget(QLabel("Attività recenti"))
+        self.log_title = QLabel("Registro dettagliato · diagnostica")
+        outer.addWidget(self.log_title)
         self.log = QTextEdit()
         self.log.setReadOnly(True)
         self.log.setMaximumHeight(105)
@@ -264,6 +266,8 @@ class PocketWindow(QMainWindow):
         self.username.setVisible(enabled)
         self.advanced_signal_group.setVisible(enabled)
         self.signals.setVisible(enabled)
+        self.log_title.setVisible(enabled)
+        self.log.setVisible(enabled)
         if not enabled and self.tabs.currentIndex() in (2, 4):
             self.tabs.setCurrentIndex(0)
 
@@ -465,16 +469,19 @@ class PocketWindow(QMainWindow):
         w = QWidget()
         box = QVBoxLayout(w)
         row = QHBoxLayout()
-        self.history_status = QLabel("Storico in RAM (max 120 campioni, circa 6 min a 3s); nessun salvataggio automatico.")
+        self.history_status = QLabel(
+            "L'andamento si aggiorna automaticamente ogni pochi secondi. "
+            "Mostra le ultime 120 letture senza salvarle sul computer."
+        )
         self.history_status.setWordWrap(True)
-        clear = QPushButton("Azzera storico")
+        clear = QPushButton("Cancella andamento")
         clear.clicked.connect(self._clear_history)
         row.addWidget(self.history_status, 1)
         row.addWidget(clear)
         box.addLayout(row)
         self.timeline_table = QTableWidget(0, 7)
         self.timeline_table.setHorizontalHeaderLabels(
-            ["Ora", "Connessione", "Rete", "Tacche", "Download", "Upload", "Variazioni"]
+            ["Ora", "Connessione", "Rete", "Segnale", "Scaricamento", "Invio", "Cambiamenti"]
         )
         self.timeline_table.horizontalHeader().setSectionResizeMode(
             QHeaderView.ResizeMode.ResizeToContents
@@ -488,23 +495,23 @@ class PocketWindow(QMainWindow):
     def _clear_history(self):
         self.timeline.clear()
         self.timeline_table.setRowCount(0)
-        self.history_status.setText("Storico azzerato (in RAM).")
+        self.history_status.setText("Andamento cancellato. Le nuove letture ricominceranno automaticamente.")
 
     def _append_history(self, data):
         point = self.timeline.observe(data)
         self.timeline_table.insertRow(0)
         columns = (
-            point.timestamp[11:19], point.connection, point.network,
-            point.bars, format_rate(point.down_bps),
-            format_rate(point.up_bps), point.change or "—",
+            point.timestamp[11:19], friendly_connection(point.connection), point.network,
+            friendly_signal(point.bars), format_rate(point.down_bps),
+            format_rate(point.up_bps), friendly_changes(point.change),
         )
         for col, value in enumerate(columns):
             self.timeline_table.setItem(0, col, QTableWidgetItem(value))
         while self.timeline_table.rowCount() > 120:
             self.timeline_table.removeRow(self.timeline_table.rowCount() - 1)
         self.history_status.setText(
-            f"Campioni: {len(self.timeline.points())}/120 · "
-            "solo lettura, traffico e tacche dipendono dal firmware"
+            f"Letture raccolte: {len(self.timeline.points())} su 120 · "
+            "I dati provengono direttamente dal dispositivo"
         )
 
     def _diagnostics_tab(self):
@@ -686,8 +693,8 @@ class PocketWindow(QMainWindow):
         self.timeline.clear()
         self.timeline_table.setRowCount(0)
         self.password.clear()
-        self.status.setText("● API Huawei autenticata · verifica misure radio...")
-        self._log("Sessione API Huawei attiva (non prova aggancio LTE)")
+        self.status.setText("● Dispositivo collegato · lettura in corso...")
+        self._log("Dispositivo collegato. Lettura della connessione in corso.")
         info = snapshot.get("device_information")
         if isinstance(info, dict):
             model = str(info.get("DeviceName") or info.get("Model") or "").strip()
@@ -969,7 +976,12 @@ class PocketWindow(QMainWindow):
                 for col, key in enumerate(("band", "rsrp", "rsrq", "sinr", "rssi", "pci", "status")):
                     self.scan_table.setItem(row, col, QTableWidgetItem(_show(item.get(key))))
         if not ok:
-            QMessageBox.warning(self, "Radio: verifica fallita", message)
+            QMessageBox.warning(
+                self,
+                "Operazione non riuscita",
+                friendly_route(False, message) if command == "route_check"
+                else friendly_error(message),
+            )
 
     def _export(self):
         if not self.snapshot:
@@ -991,8 +1003,8 @@ class PocketWindow(QMainWindow):
 
     def _failed(self, message: str):
         self.status.setText("● Connessione non riuscita")
-        self._log("Sessione fallita: " + message)
-        QMessageBox.warning(self, "Huawei API", message)
+        self._log("Connessione non riuscita: " + friendly_error(message))
+        QMessageBox.warning(self, "Impossibile collegarsi", friendly_error(message))
 
     def _disconnect(self):
         if self.radio_worker:
@@ -1004,8 +1016,8 @@ class PocketWindow(QMainWindow):
         self.radio_worker = None
         self.busy = False
         self._set_online(False)
-        self.status.setText("● Disconnesso")
-        self._log("Sessione terminata")
+        self.status.setText("● Dispositivo scollegato")
+        self._log("Collegamento terminato")
 
     def closeEvent(self, event):
         if self.radio_worker and self.radio_worker.isRunning():
