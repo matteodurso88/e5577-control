@@ -100,7 +100,8 @@ class BenchmarkTests(unittest.TestCase):
             route_checker=extra.pop("route_checker", self.route),
             resolver=lambda: self.egress.destination,
             downloader=extra.pop("downloader", lambda *a, **k: DownloadSample(12.5, 45, 1048576)),
-            repeats=2, bytes_per_sample=1_048_576,
+            repeats=extra.pop("repeats", 2),
+            bytes_per_sample=extra.pop("bytes_per_sample", 1_048_576),
             settle_seconds=0.05, **extra,
         )
 
