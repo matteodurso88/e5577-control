@@ -11,6 +11,30 @@ GUI radio-only per **Huawei E5577Cs-321**. Non sostituisce la Web UI: si concent
 - Target desktop: Linux, Windows, macOS. Verifica OS-specifica da eseguire; nessun PASS implicito.
 - Perimetro v0.1 da completare nella sessione notturna; future estensioni Web UI fuori scope.
 
+## Dashboard grafica e identificazione banda LTE — iterazione 13 ottobre 2026
+
+La schermata **Stato connessione** offre ora tre riquadri leggibili: **🌐 Rete mobile** (operatore/stato), **📶 Segnale** (tacche e barra Qt, indicatore approssimativo) e **📡 Banda LTE**. Le schede hanno icone native Qt, senza dipendenze da font esterni; le emoji nei titoli sono soltanto elementi decorativi, il testo rimane autonomo.
+
+**Attenzione alla provenienza della banda:**
+
+- **B7 · rilevata**: mostrata solo se un endpoint radio restituisce esplicitamente un valore `lte_bandinfo` interpretabile e compatibile con la maschera abilitata, mentre la rete LTE è connessa.
+- **B7 · dedotta**: solo se il firmware dichiara connessione 4G (`ConnectionStatus=901`, `CurrentNetworkType=19/101`, `plmn.Rat=7`) e la maschera restituita da `net_mode.LTEBand` contiene **un singolo bit** (esempio `40` esadecimale = solo B7). In questo caso la banda unica è una **deduzione dalla configurazione consentita**, non una misura della serving cell; non attesta che il firmware stia applicando il vincolo correttamente.
+- **Non rilevabile**: quando sono abilitate più bande e `lte_bandinfo` è nullo/non interpretabile, quando la rete LTE non risulta connessa o mancano i dati. Mostriamo comunque l'elenco delle bande consentite e la motivazione, senza inventare PCI, EARFCN o bande effettive.
+
+Questa distinzione è importante sul firmware Huawei E5577Cs-321 `21.328.62.00.55`: nel payload reale dell'owner `signal.lte_bandinfo=null`, `cell_info` non è supportato (`100002`), ma con connessione LTE e maschera `LTEBand=40` la GUI può segnalare prudentemente `B7 · dedotta`.
+
+I campi dettagliati della rete e le metriche radio originali rimangono accessibili tramite **Mostra strumenti avanzati**. Nessun cambio banda o interrogazione aggiuntiva viene attivato dalla dashboard.
+
+Nuovi test automatici: cinque casi puri per provenienza banda/maschera/LTE + tre smoke Qt per i riquadri e l'indicatore a tacche. Totale **72 test attesi**, esecuzione sul Dell ancora da verificare sul commit più recente.
+
+```bash
+cd ~/progetti/workshop/pocket-manager
+git pull --ff-only
+.venv/bin/python scripts/local_gate.py
+.venv/bin/python -m pocket_manager
+```
+
+Smoke manuale di sola lettura: confermare `B7 · dedotta`, `Bande consentite: B7`, segnale 1/5 e corretto comportamento della modalità avanzata. Quando sono abilitate più bande, la scheda non deve dedurre arbitrariamente quella attiva.
 ## Interfaccia semplice e strumenti avanzati — UX pass (13 ottobre 2026)
 
 Il design ha due livelli **senza duplicare logica radio e senza perdere controlli**:
