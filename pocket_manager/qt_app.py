@@ -999,6 +999,10 @@ class PocketWindow(QMainWindow):
                 if summary.inbox is not None
                 else "Contatore SMS non supportato"
             )
+        # SMS-only background refresh must not create a duplicate
+        # radio telemetry sample for a measurement that was not polled.
+        if set(data) == {"sms_count"}:
+            return
         self.mobile_enabled = mobile_data_state(
             self.snapshot.get("mobile_data")
         )
