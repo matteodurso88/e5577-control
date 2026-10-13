@@ -753,6 +753,11 @@ class PocketWindow(QMainWindow):
         # Never run a measurement scan while the firmware supplies no RF
         # readings: it would change bands but return misleading empty rows.
         self.scan_btn.setEnabled(online and not self.busy and self.has_measurements)
+        self.sms_open.setEnabled(online)
+        self.sms_reload.setEnabled(online and not self.busy)
+        self.data_toggle.setEnabled(
+            online and not self.busy and self.mobile_enabled is not None
+        )
 
     def _reload_profiles(self, chosen: str | None = None):
         self.saved.blockSignals(True)
@@ -900,6 +905,8 @@ class PocketWindow(QMainWindow):
     def _ready(self, snapshot):
         self.timeline.clear()
         self.timeline_table.setRowCount(0)
+        self._reset_sms()
+        self.mobile_enabled = None
         self.password.clear()
         self.status.setText("● Dispositivo collegato · lettura in corso...")
         self._log("Dispositivo collegato. Lettura della connessione in corso.")
@@ -942,6 +949,37 @@ class PocketWindow(QMainWindow):
 
     def _reading(self, data):
         self.snapshot.update(data)
+        if "sms_count" in data:
+            summary = sms_summary(data["sms_count"])
+            if summary.unread is not None:
+                self.sms_value.setText(
+                    f"{summary.unread} da leggere"
+                )
+            elif summary.inbox is not None:
+                self.sms_value.setText(f"{summary.inbox} SMS")
+            else:
+                self.sms_value.setText("Non disponibile")
+            self.sms_hint.setText(
+                f"Ricevuti: {summary.inbox}"
+                if summary.inbox is not None
+                else "Contatore SMS non supportato"
+            )
+        self.mobile_enabled = mobile_data_state(
+            self.snapshot.get("mobile_data")
+        )
+        if self.mobile_enabled is None:
+            self.data_state.setText("📶  Dati mobili: stato non disponibile")
+            self.data_toggle.setText("Comando non disponibile")
+        else:
+            self.data_state.setText(
+                "📶  Internet mobile attivo"
+                if self.mobile_enabled else
+                "📴  Internet mobile disattivato"
+            )
+            self.data_toggle.setText(
+                "Disattiva dati mobili" if self.mobile_enabled
+                else "Attiva dati mobili"
+            )
         signal = self.snapshot.get("signal", {})
         self.has_measurements = has_radio_measurements(signal)
         overview = network_overview(
@@ -1162,7 +1200,23 @@ class PocketWindow(QMainWindow):
 
     def _job_done(self, command, ok, message, data):
         self._busy(False)
+        # Never include SMS sender, content or metadata in activity logs.
         self._log(("OK: " if ok else "ERRORE: ") + message)
+        if command == "sms_fetch":
+            if ok:
+                self._show_sms(data)
+            else:
+                self.messages.clear()
+                self.sms_table.setRowCount(0)
+                self.sms_text.clear()
+                self.sms_status.setText("Impossibile leggere i messaggi.")
+        if command == "sms_refresh" and ok:
+            self._reading({"sms_count": data})
+        if command == "mobile_switch":
+            if ok:
+                self._reading(data)
+            else:
+                self.data_state.setText("📶  Modifica non confermata: verifica lo stato")
         if command == "route_check":
             self.benchmark_label.setText(friendly_route(ok, message))
             if not ok:
@@ -1252,6 +1306,9 @@ class PocketWindow(QMainWindow):
     def _worker_finished(self):
         self.radio_worker = None
         self.busy = False
+        self.mobile_enabled = None
+        self.snapshot.clear()
+        self._reset_sms()
         self._set_online(False)
         self.status.setText("● Dispositivo scollegato")
         self._log("Collegamento terminato")
