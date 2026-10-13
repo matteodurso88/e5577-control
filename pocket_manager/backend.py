@@ -7,7 +7,7 @@ import threading
 import time
 from collections.abc import Callable
 
-from .radio import RadioConfig, mask_hex, numeric_metric
+from .radio import RadioConfig, mask_hex, numeric_metric, has_radio_measurements
 
 
 class RadioError(RuntimeError):
@@ -70,6 +70,8 @@ class HuaweiRadioBackend:
         if full:
             result["mode_list"] = self._read(self.client.net, "net_mode_list")
             result["cell_info"] = self._read(self.client.net, "cell_info")
+            # Distinguish login success from modem registration/connection.
+            result["monitoring_status"] = self._read(self.client.monitoring, "status")
         return result
 
     def config(self) -> RadioConfig:
@@ -167,7 +169,8 @@ class HuaweiRadioBackend:
                            "rsrq": median("rsrq"), "sinr": median("sinr"),
                            "rssi": median("rssi"), "pci": last.get("pci"),
                            "cellid": last.get("cellid") or last.get("cell_id"),
-                           "status": "OK"}
+                           "status": ("OK" if any(has_radio_measurements(s) for s in samples)
+                                      else "Nessuna misura")}
                 except Exception as exc:
                     # Cancelling mid read-back may already have changed the
                     # modem. Exit without an error row and let finally perform
