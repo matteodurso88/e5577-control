@@ -157,6 +157,35 @@ class BenchmarkTests(unittest.TestCase):
         self.assertTrue(self.radio.current.matches(self.radio.baseline))
         self.assertEqual(self.radio.writes, ["4", "40"])
 
+    def test_no_lte_after_lock_is_recorded_not_measured(self):
+        self.radio.snapshot = lambda: {
+            "monitoring_status": {"ConnectionStatus": "902", "CurrentNetworkType": "19"},
+            "plmn": {"Rat": "7"},
+        }
+        rows = self.run_bands([3])
+        self.assertEqual(rows[0].status, "Nessuna connessione LTE")
+        self.assertIsNone(rows[0].med_mbps)
+        self.assertTrue(self.radio.current.matches(self.radio.baseline))
+
+    def test_http_error_still_restores_original_mode(self):
+        def fail(*args, **kwargs):
+            raise BenchmarkError("HTTP 503")
+        rows = self.run_bands([3], downloader=fail)
+        self.assertEqual(rows[0].status, "Errore")
+        self.assertTrue(self.radio.current.matches(self.radio.baseline))
+        self.assertEqual(self.radio.writes, ["4", "40"])
+
+    def test_restore_failure_is_fatal_not_success(self):
+        original_write = self.radio._write_verified
+        def reject_rollback(target, **kwargs):
+            if target.lte_band == "40":
+                raise RuntimeError("firmware not reachable")
+            return original_write(target, **kwargs)
+        self.radio._write_verified = reject_rollback
+        with self.assertRaisesRegex(BenchmarkError, "NON ripristinata"):
+            self.run_bands([3])
+        self.assertEqual(self.radio.current.lte_band, "4")
+
     def test_mismatched_sample_count_has_no_ranking(self):
         a = BandResult(3, "4", "OK", 30, 100, 2)
         b = BandResult(7, "40", "OK", 40, 120, 1)
