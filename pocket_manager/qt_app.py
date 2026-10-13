@@ -71,7 +71,8 @@ class RadioWorker(QThread):
                 self.password = ""
                 first = radio.snapshot(full=True)
                 self.ready.emit(first)
-                self.reading.emit(first)
+                # _ready() already renders the initial read. Avoid a second,
+                # duplicate history sample with the same timestamp.
                 due = time.monotonic() + 3
                 while not self.stop.is_set():
                     try:
