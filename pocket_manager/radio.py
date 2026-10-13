@@ -83,6 +83,15 @@ def numeric_metric(value: Any) -> float | None:
     return float(m.group(0)) if m else None
 
 
+def has_radio_measurements(signal: Any) -> bool:
+    """An API signal object with mode/psatt but blank LTE readings is NOT a measurement."""
+    if not isinstance(signal, dict) or "__error__" in signal:
+        return False
+    metrics = {str(k).lower(): v for k, v in signal.items()}
+    return any(numeric_metric(metrics.get(key)) is not None
+               for key in ("rsrp", "rsrq", "sinr", "rssi"))
+
+
 _SECRET_FIELD = re.compile(
     r"password|cookie|token|secret|imsi|imei|iccid|serial|"
     r"macaddress|ssid|msisdn|phonenumber|ipaddress|phonebook",
