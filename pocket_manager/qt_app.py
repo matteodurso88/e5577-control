@@ -196,6 +196,7 @@ class PocketWindow(QMainWindow):
         self.detected_model = ""
         self.timeline = TelemetryTimeline(120)
         self.messages = []
+        self.sms_reader_dialog = None
         self.sms_page = 1
         self.mobile_enabled = None
         self.setWindowTitle("Pocket Radio Manager · " + __version__)
@@ -546,8 +547,15 @@ class PocketWindow(QMainWindow):
 
     def _open_sms_message(self, row: int, column: int):
         dialog = self._create_sms_reader(row)
-        if dialog is not None:
+        if dialog is None:
+            return
+        self.sms_reader_dialog = dialog
+        try:
             dialog.exec()
+        finally:
+            if self.sms_reader_dialog is dialog:
+                self.sms_reader_dialog = None
+            dialog.deleteLater()
 
     def _show_sms(self, items):
         self.messages = list(items)
@@ -573,6 +581,9 @@ class PocketWindow(QMainWindow):
             self.sms_text.clear()
 
     def _reset_sms(self):
+        if self.sms_reader_dialog is not None:
+            self.sms_reader_dialog.reject()
+            self.sms_reader_dialog = None
         self.messages.clear()
         self.sms_page = 1
         self.sms_page_label.setText("Pagina 1")
@@ -798,11 +809,21 @@ class PocketWindow(QMainWindow):
 
     def _diagnostics_tab(self):
         w = QWidget()
-        box = QVBoxLayout(w)
-        self._technical_radio_panels(box)
+        outer = QVBoxLayout(w)
+        sections = QTabWidget()
+
+        radio_page = QWidget()
+        radio_box = QVBoxLayout(radio_page)
+        self._technical_radio_panels(radio_box)
+        sections.addTab(radio_page, "Misure radio")
+
+        api_page = QWidget()
+        box = QVBoxLayout(api_page)
         buttons = QHBoxLayout()
         self.refresh_btn = QPushButton("Aggiorna dati API")
-        self.refresh_btn.clicked.connect(lambda: self.radio_worker and self.radio_worker.submit("refresh"))
+        self.refresh_btn.clicked.connect(
+            lambda: self.radio_worker and self.radio_worker.submit("refresh")
+        )
         export = QPushButton("Esporta JSON (redatto)")
         export.clicked.connect(self._export)
         buttons.addWidget(self.refresh_btn)
@@ -810,7 +831,9 @@ class PocketWindow(QMainWindow):
         box.addLayout(buttons)
         self.raw = QTextEdit()
         self.raw.setReadOnly(True)
-        box.addWidget(self.raw)
+        box.addWidget(self.raw, 1)
+        sections.addTab(api_page, "API ed esportazione")
+        outer.addWidget(sections, 1)
         return w
 
     def _log(self, message: str):
@@ -1110,8 +1133,8 @@ class PocketWindow(QMainWindow):
         self.band_value.setToolTip(band.detail)
         down, up = traffic_rates(self.snapshot.get("traffic_statistics"))
         self.traffic_label.setText(
-            f"Trasferimento in questo momento:  Scaricamento ↓ {format_rate(down)}  "
-            f"Invio ↑ {format_rate(up)}"
+            f"↓ Scaricamento {format_rate(down)}     "
+            f"↑ Invio {format_rate(up)}"
         )
         self._append_history(self.snapshot)
         if self.online:
