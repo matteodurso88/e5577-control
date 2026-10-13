@@ -96,7 +96,14 @@ class RadioWorker(QThread):
                             else:
                                 self.cancel.clear()
                                 data = radio.scan(opts["bands"], self.cancel, self.progress.emit)
-                                message = "Scansione terminata; baseline ripristinata"
+                                no_measurements = bool(data) and not any(
+                                    row.get("status") == "OK" for row in data
+                                )
+                                message = (
+                                    "Scansione senza misure LTE utilizzabili; baseline ripristinata"
+                                    if no_measurements else
+                                    "Scansione terminata; baseline ripristinata"
+                                )
                             self.finished_job.emit(command, True, message, data)
                         except Exception as exc:
                             self.finished_job.emit(command, False, str(exc).replace(original_secret, "[redacted]") if original_secret else str(exc), {})
@@ -520,7 +527,9 @@ class PocketWindow(QMainWindow):
         self.raw.setPlainText(json.dumps(safe_json_data(self.snapshot), ensure_ascii=False, indent=2, default=str))
 
     def _preset(self, name):
-        bands = PRESETS.get(name, ())
+        if name not in PRESETS:
+            return
+        bands = PRESETS[name]
         for band, check in self.band_checks.items():
             check.setChecked(band in bands and (not self.available or band in self.available))
         self._mask()
@@ -599,16 +608,23 @@ class PocketWindow(QMainWindow):
             self.cancel_btn.setEnabled(False)
 
     def _progress(self, item):
-        self.scan_status.setText(
-            f"{item.get('status','')} · B{item.get('band','—')} "
-            f"{item.get('step','')}/{item.get('total','')}"
-        )
+        details = str(item.get("status", ""))
+        if "band" in item:
+            details += f" · B{item['band']}"
+        if "step" in item and "total" in item:
+            details += f" · {item['step']}/{item['total']}"
+        self.scan_status.setText(details)
+
 
     def _job_done(self, command, ok, message, data):
         self._busy(False)
         self._log(("OK: " if ok else "ERRORE: ") + message)
         if command == "scan":
             self.scan_results = data if isinstance(data, list) else []
+            if any(row.get("status") == "Nessuna misura" for row in self.scan_results):
+                self._log("ATTENZIONE: scanner senza letture RF su una o più bande. "
+                          "Lo stato API non equivale ad aggancio LTE.")
+
             self.scan_table.setRowCount(0)
             for item in self.scan_results:
                 row = self.scan_table.rowCount()
