@@ -33,6 +33,18 @@ ip -4 route
 
 Il pocket deve essere effettivamente **raggiungibile dal Dell**, ad esempio tramite Wi-Fi del pocket o tethering USB. Con due reti attive il gateway predefinito può riferirsi al router domestico e non al pocket. Il discovery può trovare un candidato ma non completare l'identificazione finché il login non viene effettuato.
 
+## Dell smoke autenticato — 13 ottobre 2026
+
+Evidenze dalle schermate owner:
+- Sessione Huawei autenticata dopo un primo login respinto `108006`. GUI PySide6 avviata e monitor poll attivo.
+- `api/device/signal` restituisce `mode=7` e `psatt=1`, ma **nessuna** misura RSRP/RSRQ/SINR/RSSI, PCI o cell ID. Non dedurre da questi due codici un aggancio LTE.
+- `net_mode` read-back: `LTEBand=40` (maschera LTE B7) e `NetworkMode=00`. La maschera indica le bande LTE consentite, NON la banda di cella effettivamente in uso.
+- Uno scan B7 è stato riportato `OK` benché tutte le misure fossero vuote; dopo scan, registro `baseline ripristinata`. Il firmware non ha ancora fornito prove di serving cell/qualità radio.
+- Correzioni successive: monitor indica separatamente sessione API e presenza di RF metrics; scanner disabilitato se tutte le misure sono assenti; un sample vuoto non è più classificato `OK`; progress e preset sono sincronizzati; il read-only snapshot completo aggiunge `monitoring/status` e `device/information` per diagnosticare connessione e modello dopo login.
+- **Nuovi test e GUI da ricollaudare sul Dell**, nessuna ulteriore scansione o scrittura a bande finché stato rete mobile e baseline non sono confermati.
+
+Prossimo controllo in sola lettura: `git pull --ff-only`, `python scripts/local_gate.py`, `python -m pocket_manager`, login, scheda `Dati API` e `Aggiorna dati API`. Per supporto condividere solo sezioni redatte di `signal`, `monitoring_status`, `net_mode` e `plmn`; evitare credenziali, token, IMEI e seriali. Verificare sulla Web UI Huawei che SIM, registrazione rete e dati mobili siano attivi.
+
 ## Discovery / Pocket salvati — requisiti v0.1
 
 1. Individuare pocket raggiungibili tramite probe non invasivi sulle interfacce locali, controllando identità modello via API Huawei. Supportare IP manuale.
