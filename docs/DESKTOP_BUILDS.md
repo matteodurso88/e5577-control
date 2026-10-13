@@ -1,82 +1,54 @@
-# Pocket Radio Manager — desktop packages Linux e Windows
+# Pocket Radio Manager — installer Linux e Windows
 
-Il packaging è attivato dalla workflow GitHub Actions:
-https://github.com/matteodurso88/workshop/actions/workflows/pocket-radio-manager-desktop.yml
+Repository WORKSHOP: https://github.com/matteodurso88/workshop
+Release scoping tramite tag specifico **pocket-radio-manager/v0.1.0**.
+Workflow: https://github.com/matteodurso88/workshop/actions/workflows/pocket-radio-manager-desktop.yml
 
-La branch di sviluppo è work/pocket-manager-radio-v01; main non viene modificato
-né utilizzato come target di pubblicazione automatica.
+## Pacchetti
 
-## Matrice delle build candidate
-
-| Sistema | Runner nativo | Archivio |
+| Sistema | Installer raccomandato | Portabile |
 | --- | --- | --- |
-| Linux x86-64 | Ubuntu 24.04 | pocket-radio-manager-v0.1.0-linux-x86_64.tar.gz |
-| Windows x86-64 | Windows Server 2022 | pocket-radio-manager-v0.1.0-windows-x86_64.zip |
+| Linux Ubuntu/Debian amd64 | pocket-radio-manager-v0.1.0-linux-x86_64.deb | pocket-radio-manager-v0.1.0-linux-x86_64.tar.gz |
+| Windows 10/11 x64 | pocket-radio-manager-v0.1.0-windows-x86_64-setup.exe | pocket-radio-manager-v0.1.0-windows-x86_64.zip |
 
-Sono PACCHETTI PORTABILI e NON installer .deb, .msi, AppImage o installer
-firmati. Non contengono alcun profilo, dispositivo associato, password o SMS.
+La sorgente dell'icona è **assets/pocket-radio-manager-icon.svg**: vettoriale nativa, comune alle due piattaforme. Lo script scripts/generate_icons.py crea il PNG 256px usato da Linux e l'ICO multi-risoluzione Windows.
 
-La versione Linux richiede una distribuzione desktop x86-64 sufficientemente
-recente; il suo riferimento di build è Ubuntu 24.04. ARM64 e distribuzioni
-Linux con vecchie librerie glibc sono fuori dall'attuale matrice.
-Su Windows l'eseguibile non firmato può generare avvisi SmartScreen.
+### Linux — pacchetto Debian
 
-## Scaricamento degli artifact GitHub
+Il pacchetto installa l'applicazione in /opt/pocket-radio-manager/, l'icona in /usr/share/icons/hicolor/256x256/apps/ e la voce menu in /usr/share/applications/io.matt88.PocketRadioManager.desktop, categorie Network/Utility. L'installazione/rimozione avviene con apt o dal gestore pacchetti.
 
-1. Apri GitHub → Actions → Pocket Radio Manager | Linux + Windows desktop packages.
-2. Seleziona una esecuzione della branch work/pocket-manager-radio-v01.
-3. Scarica il relativo artifact solo se entrambi i job risultano riusciti.
-4. Estrai il primo ZIP di GitHub Actions, poi l'archivio relativo al tuo OS.
-5. Confronta l'hash SHA-256 dell'archivio con SHA256SUMS.txt presente
-   nell'artifact.
-6. Esegui PocketRadioManager (Linux) o PocketRadioManager.exe (Windows)
-   dalla cartella estratta PocketRadioManager, NON dall'archivio compresso.
+~~~bash
+sudo apt install ./pocket-radio-manager-v0.1.0-linux-x86_64.deb
+~~~
 
-Gli artifact restano disponibili per 14 giorni e non equivalgono a una
-GitHub Release permanente. Una Release necessita della validazione reale
-dell'owner su Linux e Windows e di autorizzazione separata.
+La GUI sarà ricercabile nel menu delle applicazioni come **Pocket Radio Manager**. Per disinstallare: sudo apt remove pocket-radio-manager. Configurazioni personali e credenziali gestite da keyring OS non sono incluse negli installer.
 
-## Gate della pipeline
+### Windows — installer Inno Setup
 
-La workflow installa Python 3.12, il progetto dal pyproject.toml e
-PyInstaller 6.16.0. Ogni job:
+L'installer integra una voce **Pocket Radio Manager** nel menu Start, supporta disinstallazione e offre un collegamento desktop opzionale. L'installazione predefinita è per utente in LocalAppData/Programs e non richiede privilegi amministrativi. Il setup è **unsigned**: Windows SmartScreen può segnalarlo; la scelta di eseguirlo spetta all'utente dopo aver verificato origine e SHA-256.
 
-1. Esegue il gate Python/Qt locale scripts/local_gate.py.
-2. Compila con scripts/build_desktop.py, nativamente sull'OS target.
-3. Esegue --version e --self-check sul BINARY CONGELATO.
-4. Archivia solo la cartella eseguibile congelata, aggiunge
-   README-FIRST.txt e BUILD-MANIFEST.json con commit GitHub e versioni delle
-   dipendenze, calcola SHA256SUMS.txt.
-5. Carica come artifact la coppia archivio/checksum per 14 giorni.
+## Scoping monorepo e release
 
-Il self-check importa PySide6, la libreria Huawei, keyring e il codice
-applicativo senza creare QApplication, aprire connessioni al pocket, leggere
-credenziali né effettuare modifiche radio. L'esito positivo NON prova
-l'avvio manuale della GUI, la connettività o il keyring su ciascun PC.
+Il repository canonico è sempre matteodurso88/workshop, branch main. I tag GitHub sono globali ma hanno un prefisso specifico per ciascuna applicazione. Questo progetto usa **pocket-radio-manager/v0.1.0**; gli altri sottoprogetti possono usare tag propri.
 
-I vincoli versione delle dipendenze runtime sono dichiarati come intervalli
-nel pyproject.toml: il manifest conserva le versioni effettive impacchettate.
-Non si garantisce riproducibilità bit-per-bit.
+Il job GitHub Actions di release si avvia solo quando il codice viene integrato in main e passa i gate nativi Linux/Windows; crea la release una sola volta per il tag, includendo i quattro pacchetti e SHA256SUMS.txt. La pubblicazione di un prototipo Workshop non è promozione a Product.
 
-## Compilazione manuale
+## Gate e controlli
 
-Da pocket-manager/ su Linux x86-64 o Windows x64 con Python 3.12:
+La CI installa Python 3.12, PyInstaller 6.16.0, Pillow 11.3.0; su Windows include Inno Setup 6. Entrambi i job eseguono il gate Python/Qt e i controlli --version / --self-check dell'eseguibile congelato, senza rete o modem. Un risultato verde CI non sostituisce un collaudo manuale post-installazione.
+
+Le build sono native (no cross-compilazione). Linux è mirato a distribuzioni x86-64 compatibili con Ubuntu 24.04; Windows a x64. Non sono prodotti installer ARM64, macOS, AppImage o MSI.
+
+## Compilazione locale
 
 ~~~shell
-python -m pip install -e . "pyinstaller==6.16.0"
+python -m pip install -e . "pyinstaller==6.16.0" "pillow==11.3.0"
 python scripts/local_gate.py
 python scripts/build_desktop.py
 ~~~
 
-Le build generate si trovano in dist/packages/, ignorata da Git.
-L'interruttore dati mobili, il blocco bande e la casella SMS non sono
-automaticamente esercitati da alcuna fase di packaging.
+Su Windows è richiesto Inno Setup 6 con ISCC.exe. Su Linux servono dpkg-deb e le librerie Qt del desktop. Tutti i pacchetti compaiono in dist/packages/ (ignorato da Git). Nessun profilo locale, password, dato SMS o token viene copiato negli archivi.
 
-## Accettazione
+## Verifica
 
-Prima di promuovere gli archivi a release, verificare su entrambe le
-piattaforme: avvio e chiusura della GUI, discovery del pocket, login,
-lettura SMS, keyring OS se configurato, Home, modalità avanzata, e
-controllo dello stato mobile. Comandi di modifica radio/connessione solo
-su decisione esplicita e in sessione controllata; il build gate non
-autorizza interventi sul modem.
+Scarica i pacchetti dalla release GitHub ufficiale e confronta l'SHA-256 con SHA256SUMS.txt. Dopo l'installazione, verifica avvio dal menu applicazioni/Start, icona, collegamento al pocket, stato LTE, lettura SMS, chiusura, disinstallazione e keyring dove disponibile. Il build gate non esegue comandi radio reali.
