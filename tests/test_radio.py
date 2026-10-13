@@ -77,17 +77,32 @@ class FakeDevice:
         return {"rsrp": "-100dBm", "rsrq": "-10dB", "sinr": "12dB",
                 "rssi": "-75dBm", "pci": "17", "cellid": "101"}
 
+    def information(self):
+        return {"DeviceName": "E5577Cs-321", "Imei": "PRIVATE"}
+
+
+class FakeMonitoring:
+    def status(self):
+        return {"ConnectionStatus": "901"}
+
 
 class FakeClient:
     def __init__(self):
         self.net = FakeNet()
         self.device = FakeDevice()
+        self.monitoring = FakeMonitoring()
 
 
 class BackendTest(unittest.TestCase):
     def setUp(self):
         self.backend = HuaweiRadioBackend("192.168.8.1", "admin", "test")
         self.backend.client = FakeClient()
+
+    def test_full_snapshot_includes_status_and_auth_model(self):
+        snapshot = self.backend.snapshot(full=True)
+        self.assertEqual(snapshot["device_information"]["DeviceName"], "E5577Cs-321")
+        self.assertEqual(snapshot["monitoring_status"]["ConnectionStatus"], "901")
+        self.assertNotIn("Imei", safe_json_data(snapshot["device_information"]))
 
     @patch("pocket_manager.backend.time.sleep", lambda _: None)
     def test_apply_readback_restore(self):
