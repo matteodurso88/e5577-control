@@ -25,6 +25,8 @@ from .discovery import discover_report
 from .profiles import PocketProfile, ProfileStore, CredentialStoreError
 from .radio import FALLBACK_BANDS, FREQUENCIES, MODES, PRESETS, mask_hex, supported_bands, bands_from_mask, safe_json_data, has_radio_measurements, network_overview
 from .telemetry import TelemetryTimeline, format_rate, traffic_rates
+from .band_benchmark import (run_band_benchmark, resolve_endpoint,
+                             check_route, ranking)
 
 
 class DiscoveryWorker(QThread):
@@ -85,9 +87,25 @@ class RadioWorker(QThread):
                         self.reading.emit(radio.snapshot())
                     elif command == "refresh":
                         self.reading.emit(radio.snapshot(full=True))
-                    elif command in ("apply", "restore", "scan"):
+                    elif command in ("apply", "restore", "scan", "route_check", "benchmark"):
                         try:
-                            if command == "apply":
+                            if command == "route_check":
+                                dest = resolve_endpoint()
+                                path = check_route(radio.host, dest)
+                                message = f"Uscita verificata: {path.interface} via {path.gateway}"
+                                data = {"interface": path.interface, "gateway": path.gateway}
+                            elif command == "benchmark":
+                                self.cancel.clear()
+                                data = run_band_benchmark(
+                                    radio, opts["bands"], self.cancel,
+                                    lambda message: self.progress.emit({"status": message}),
+                                    repeats=opts["repeats"],
+                                    bytes_per_sample=opts["bytes_per_sample"],
+                                )
+                                completed = len([r for r in data if r.status == "OK"])
+                                message = (f"Benchmark concluso: {completed}/{len(data)} "
+                                           "bande misurate. Baseline ripristinata.")
+                            elif command == "apply":
                                 result = radio.apply(opts["mask"], opts["mode"])
                                 message = "Confermato: LTEBand=" + result.lte_band
                                 data = {}
@@ -289,7 +307,7 @@ class PocketWindow(QMainWindow):
         self.restore_btn.clicked.connect(self._restore)
         self.scan_btn = QPushButton("Scansiona selezionate")
         self.scan_btn.clicked.connect(self._scan)
-        self.cancel_btn = QPushButton("Interrompi scan")
+        self.cancel_btn = QPushButton("Interrompi scan/test")
         self.cancel_btn.clicked.connect(self._cancel)
         for btn in (self.apply_btn, self.restore_btn, self.scan_btn, self.cancel_btn):
             actions.addWidget(btn)
