@@ -312,9 +312,7 @@ class PocketWindow(QMainWindow):
         self.host.setVisible(enabled)
         self.username_caption.setVisible(enabled)
         self.username.setVisible(enabled)
-        self.advanced_signal_group.setVisible(enabled)
-        self.advanced_network_group.setVisible(enabled)
-        self.signals.setVisible(enabled)
+        # Full radio diagnostic widgets live in Dettagli tecnici (tab 5).
         self.log_title.setVisible(enabled)
         self.log.setVisible(enabled)
     def _summary_card(self, heading: str):
@@ -338,54 +336,73 @@ class PocketWindow(QMainWindow):
         return frame, value, hint, content
 
     def _monitor_tab(self):
+        """Home contains cards only. Full RF diagnostics live in Dettagli tecnici."""
         w = QWidget()
         box = QVBoxLayout(w)
+        box.setSpacing(12)
 
-        tiles = QHBoxLayout()
-        network_card, self.network_value, self.network_hint, _ = (
+        network_card, self.network_value, self.network_hint, network_content = (
             self._summary_card("🌐  Rete mobile")
         )
+        self.traffic_label = QLabel("↓ Scaricamento —     ↑ Invio —")
+        self.traffic_label.setWordWrap(True)
+        self.traffic_label.setToolTip(
+            "Traffico istantaneo di tutti i dispositivi collegati al pocket. "
+            "Non è uno speed test."
+        )
+        network_content.addWidget(self.traffic_label)
+        data_bar = QHBoxLayout()
+        self.data_state = QLabel("📶  Dati mobili: stato non disponibile")
+        self.data_state.setWordWrap(True)
+        self.data_state.setToolTip(
+            "Gestisce Internet sulla SIM, non il Wi-Fi o il collegamento dell'app."
+        )
+        self.data_toggle = QPushButton("Attiva dati mobili")
+        self.data_toggle.clicked.connect(self._toggle_mobile_data)
+        data_bar.addWidget(self.data_state, 1)
+        data_bar.addWidget(self.data_toggle)
+        network_content.addLayout(data_bar)
+
         signal_card, self.signal_value, self.signal_hint, signal_content = (
             self._summary_card("📶  Segnale")
-        )
-        band_card, self.band_value, self.band_hint, _ = (
-            self._summary_card("📡  Banda LTE")
-        )
-        sms_card, self.sms_value, self.sms_hint, sms_content = (
-            self._summary_card("✉️  SMS")
-        )
-        self.sms_open = QPushButton("Apri messaggi")
-        self.sms_open.clicked.connect(self._open_sms)
-        sms_content.addWidget(self.sms_open)
-        self.band_value.setToolTip(
-            "Banda rilevata solo quando comunicata esplicitamente dal modem; "
-            "con una sola banda abilitata e 4G attivo è indicata come dedotta."
         )
         self.signal_gauge = QProgressBar()
         self.signal_gauge.setRange(0, 5)
         self.signal_gauge.setValue(-1)
         self.signal_gauge.setTextVisible(False)
         self.signal_gauge.setToolTip(
-            "Indicatore approssimativo restituito dal modem (0–5 tacche). "
-            "Non equivale a RSRP, SINR o velocità Internet."
+            "Tacche indicative del modem, non RSRP, SINR o velocità Internet."
         )
         signal_content.addWidget(self.signal_gauge)
-        for tile in (network_card, signal_card, band_card, sms_card):
+
+        band_card, self.band_value, self.band_hint, _ = (
+            self._summary_card("📡  Banda LTE")
+        )
+        self.band_value.setToolTip(
+            "Rilevata solo se comunicata dal modem; con una sola banda "
+            "consentita e 4G attivo viene indicata come dedotta."
+        )
+
+        sms_card, self.sms_value, self.sms_hint, sms_content = (
+            self._summary_card("✉️  SMS")
+        )
+        self.sms_open = QPushButton("Apri messaggi")
+        self.sms_open.clicked.connect(self._open_sms)
+        sms_content.addWidget(self.sms_open)
+
+        # The first card needs space for transfer rates and the data switch.
+        # A three-card second row keeps the dashboard readable on laptops.
+        box.addWidget(network_card)
+        tiles = QHBoxLayout()
+        tiles.setSpacing(12)
+        for tile in (signal_card, band_card, sms_card):
             tiles.addWidget(tile, 1)
         box.addLayout(tiles)
+        box.addStretch(1)
+        return w
 
-        data_bar = QHBoxLayout()
-        self.data_state = QLabel("📶  Dati mobili: stato non disponibile")
-        self.data_state.setToolTip(
-            "Questo comando gestisce Internet sulla SIM, non il Wi-Fi "
-            "né il collegamento dell'app al pocket."
-        )
-        self.data_toggle = QPushButton("Attiva dati mobili")
-        self.data_toggle.clicked.connect(self._toggle_mobile_data)
-        data_bar.addWidget(self.data_state, 1)
-        data_bar.addWidget(self.data_toggle)
-        box.addLayout(data_bar)
-
+    def _technical_radio_panels(self, box):
+        """Existing detailed telemetry; moved out of Home without removing it."""
         network_group = QGroupBox("Dettagli connessione · strumenti avanzati")
         self.advanced_network_group = network_group
         network_grid = QGridLayout(network_group)
@@ -403,19 +420,8 @@ class PocketWindow(QMainWindow):
             network_grid.addWidget(label, row * 2 + 1, col)
             self.network_labels[key] = label
         box.addWidget(network_group)
-        self.traffic_label = QLabel("Trasferimento in questo momento:  Scaricamento ↓ —    Invio ↑ —")
-        self.traffic_label.setToolTip(
-            "Questi dati provengono dal pocket: indicano il traffico corrente "
-            "di tutti i dispositivi collegati, non sono uno speed test."
-        )
-        box.addWidget(self.traffic_label)
-        info = QLabel(
-            "Il livello del segnale è indicativo. Per scegliere quale banda "
-            "funziona meglio, usa «Confronta bande»: misura la connessione Internet."
-        )
-        info.setWordWrap(True)
-        box.addWidget(info)
-        group = QGroupBox("Misure radio dettagliate · strumenti avanzati")
+
+        group = QGroupBox("Misure radio dettagliate")
         self.advanced_signal_group = group
         grid = QGridLayout(group)
         self.metrics = {}
@@ -429,9 +435,10 @@ class PocketWindow(QMainWindow):
         box.addWidget(group)
         self.signals = QTableWidget(0, 2)
         self.signals.setHorizontalHeaderLabels(["Parametro radio", "Valore"])
-        self.signals.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        box.addWidget(self.signals, 1)
-        return w
+        self.signals.horizontalHeader().setSectionResizeMode(
+            1, QHeaderView.ResizeMode.Stretch
+        )
+        box.addWidget(self.signals)
 
     def _sms_tab(self):
         """Read-only inbox; message bodies never enter self.snapshot or export."""
@@ -759,6 +766,7 @@ class PocketWindow(QMainWindow):
     def _diagnostics_tab(self):
         w = QWidget()
         box = QVBoxLayout(w)
+        self._technical_radio_panels(box)
         buttons = QHBoxLayout()
         self.refresh_btn = QPushButton("Aggiorna dati API")
         self.refresh_btn.clicked.connect(lambda: self.radio_worker and self.radio_worker.submit("refresh"))
