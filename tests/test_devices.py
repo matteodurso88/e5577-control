@@ -1,6 +1,7 @@
 """No pocket, GUI, network or real credential vault required for these tests."""
 
 import json
+from http.client import BadStatusLine
 from pathlib import Path
 import tempfile
 import unittest
@@ -118,6 +119,35 @@ class DiscoveryTests(unittest.TestCase):
         self.assertEqual(report.candidates, ("192.168.8.1",))
         self.assertEqual(report.devices[0].model, "E5577Cs-321")
         self.assertEqual(len(report.diagnostics), 1)
+
+    def test_bad_http_status_line_is_a_diagnostic_not_crash(self):
+        class MalformedHttp:
+            def open(self, *args, **kwargs):
+                raise BadStatusLine("UNKNOWN 400 Bad Request")
+
+        with patch("pocket_manager.discovery.build_opener", return_value=MalformedHttp()):
+            device, diagnostics = probe_detailed("192.168.100.1")
+        self.assertIsNone(device)
+        self.assertIn("BadStatusLine", diagnostics[0])
+        self.assertNotIn("UNKNOWN 400", diagnostics[0])
+
+    def test_broken_candidate_does_not_hide_another_pocket(self):
+        from pocket_manager.discovery import DiscoveredPocket
+        pocket = DiscoveredPocket("192.168.100.1", "E5577Cs-321", "E5577Cs-321", "Huawei")
+
+        def broken_first(host, timeout):
+            if host == "192.168.8.1":
+                raise BadStatusLine("UNKNOWN 400 Bad Request")
+            return pocket, (f"{host}: identificato",)
+
+        with patch("pocket_manager.discovery.host_candidates",
+                   return_value=["192.168.8.1", "192.168.100.1"]):
+            with patch("pocket_manager.discovery.probe_detailed", side_effect=broken_first):
+                report = discover_report()
+        self.assertEqual(len(report.devices), 1)
+        self.assertEqual(report.devices[0].host, "192.168.100.1")
+        self.assertIn("BadStatusLine", report.diagnostics[0])
+        self.assertNotIn("UNKNOWN 400", " ".join(report.diagnostics))
 
 
 class ProfilesTests(unittest.TestCase):
