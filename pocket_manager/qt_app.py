@@ -27,6 +27,9 @@ from .radio import FALLBACK_BANDS, FREQUENCIES, MODES, PRESETS, mask_hex, suppor
 from .telemetry import TelemetryTimeline, format_rate, traffic_rates
 from .band_benchmark import (run_band_benchmark, resolve_endpoint,
                              check_route, ranking)
+from .presentation import (friendly_connection, friendly_signal,
+                           friendly_rf, friendly_route,
+                           friendly_benchmark_result, friendly_band_status)
 
 
 class DiscoveryWorker(QThread):
@@ -387,25 +390,35 @@ class PocketWindow(QMainWindow):
             checkbox.setChecked(band in (1, 3, 7, 20))
             selector.addWidget(checkbox)
             self.bench_checks[band] = checkbox
-        box.addWidget(QLabel("Bande LTE consentite da provare, una per volta"))
+        box.addWidget(QLabel("Scegli le bande da confrontare (una alla volta)"))
         box.addLayout(selector)
-        bench_group = QGroupBox("Benchmark bande: connettività LTE + download reale via pocket")
+        bench_group = QGroupBox("Trova la banda più conveniente per te")
         bench_layout = QVBoxLayout(bench_group)
         warn = QLabel(
-            "Il Dell DEVE usare il pocket come gateway Internet: in caso contrario "
-            "il test viene BLOCCATO prima di cambiare bande. Maschere singole B1/B3/"
-            "B5/B7/B8/B20, non serving-band certa. I test consumano dati mobili."
+            "1. Collega il computer a Internet tramite il pocket. "
+            "2. Verifica la connessione. 3. Avvia il confronto. "
+            "Durante la prova la rete mobile può interrompersi brevemente; "
+            "il programma proverà a ripristinare le impostazioni iniziali. "
+            "Le prove utilizzano traffico dati."
         )
         warn.setWordWrap(True)
         bench_layout.addWidget(warn)
         bench_buttons = QHBoxLayout()
         self.test_size = QComboBox()
-        self.test_size.addItem("1 MiB per prova", 1048576)
-        self.test_size.addItem("4 MiB per prova", 4194304)
+        self.test_size.addItem("Test rapido · 1 MiB", 1048576)
+        self.test_size.addItem("Test completo · 4 MiB", 4194304)
+        self.test_size.setToolTip(
+            "Dimensione del download eseguito per ciascuna prova. "
+            "1 MiB equivale a circa 1,05 MB."
+        )
         self.test_repeats = QComboBox()
-        self.test_repeats.addItem("1 prova", 1)
-        self.test_repeats.addItem("2 prove", 2)
-        self.test_repeats.addItem("3 prove", 3)
+        self.test_repeats.addItem("1 volta", 1)
+        self.test_repeats.addItem("2 volte", 2)
+        self.test_repeats.addItem("3 volte", 3)
+        self.test_repeats.setToolTip(
+            "Ripetere la prova aiuta a ridurre gli effetti delle oscillazioni "
+            "momentanee della rete."
+        )
         self.test_repeats.setCurrentIndex(1)
         self.route_btn = QPushButton("1. Verifica connessione")
         self.route_btn.clicked.connect(self._route_check)
@@ -413,26 +426,36 @@ class PocketWindow(QMainWindow):
         self.benchmark_btn.clicked.connect(self._benchmark)
         self.bench_cancel_btn = QPushButton("Interrompi prova")
         self.bench_cancel_btn.clicked.connect(self._cancel)
-        for item in (QLabel("Budget"), self.test_size, self.test_repeats,
+        for item in (QLabel("Intensità"), self.test_size,
+                     QLabel("Ripetizioni"), self.test_repeats,
                      self.route_btn, self.benchmark_btn, self.bench_cancel_btn):
             bench_buttons.addWidget(item)
         bench_layout.addLayout(bench_buttons)
-        self.benchmark_label = QLabel("Nessun benchmark eseguito. Uscita WAN da verificare.")
+        self.benchmark_label = QLabel("Pronto: verifica che il computer navighi tramite il pocket.")
         self.benchmark_label.setWordWrap(True)
         bench_layout.addWidget(self.benchmark_label)
         self.benchmark_history_label = QLabel(
-            "Confronti in RAM: 0 sessioni. Ripetere in fasce orarie diverse; "
-            "export JSON facoltativo dalla scheda Dati API."
+            "Confronti effettuati: 0. Puoi ripetere la prova durante la giornata "
+            "e salvare i risultati dalle opzioni avanzate."
         )
         self.benchmark_history_label.setWordWrap(True)
         bench_layout.addWidget(self.benchmark_history_label)
         self.benchmark_table = QTableWidget(0, 5)
         self.benchmark_table.setHorizontalHeaderLabels(
-            ["Banda permessa", "Stato", "Download mediano (Mbps)",
-             "TTFB mediano (ms)", "Prove valide"]
+            ["Banda provata", "Esito", "Velocità tipica (Mbps)",
+             "Tempo di risposta (ms)", "Prove riuscite"]
         )
         self.benchmark_table.horizontalHeader().setSectionResizeMode(
             QHeaderView.ResizeMode.Stretch
+        )
+        self.benchmark_table.horizontalHeaderItem(2).setToolTip(
+            "Velocità di scaricamento mediana delle prove completate, "
+            "non la velocità massima."
+        )
+        self.benchmark_table.horizontalHeaderItem(3).setToolTip(
+            "TTFB: tempo per la prima risposta HTTPS del server, "
+            "comprende connessione TCP, TLS e risposta iniziale. "
+            "Più basso è in genere meglio. Non è un ping ICMP."
         )
         bench_layout.addWidget(self.benchmark_table)
         box.addWidget(bench_group, 1)
@@ -712,19 +735,27 @@ class PocketWindow(QMainWindow):
             signal,
         )
         for key, label in self.network_labels.items():
-            label.setText(overview[key])
+            if key == "connection":
+                label.setText(friendly_connection(overview[key]))
+            elif key == "bars":
+                label.setText(friendly_signal(overview[key]))
+            elif key == "rf":
+                label.setText(friendly_rf(overview[key]))
+            else:
+                label.setText(overview[key])
         down, up = traffic_rates(self.snapshot.get("traffic_statistics"))
         self.traffic_label.setText(
-            f"Traffico dati: ↓ {format_rate(down)}   ↑ {format_rate(up)} "
-            "(Huawei API)"
+            f"Trasferimento in questo momento:  Scaricamento ↓ {format_rate(down)}  "
+            f"Invio ↑ {format_rate(up)}"
         )
         self._append_history(self.snapshot)
         if self.online:
             connected = overview["connection"].startswith("Connessa")
-            state = ("dati mobili connessi (firmware)" if connected
-                     else "stato dati: " + overview["connection"].lower())
-            rf = "RF disponibili" if self.has_measurements else "RF dettagliati assenti"
-            self.status.setText("● API Huawei autenticata · " + state + " · " + rf)
+            self.status.setText(
+                "● " + ("Pocket collegato · " if connected else "Pocket raggiungibile · ")
+                + friendly_connection(overview["connection"]) + " · "
+                + overview["network"]
+            )
             self._set_online(self.online)
         if isinstance(signal, dict):
             lower = {str(k).lower(): v for k, v in signal.items()}
@@ -827,7 +858,7 @@ class PocketWindow(QMainWindow):
         if not self.online or self.busy or self.radio_worker is None:
             return
         self._busy(True)
-        self.benchmark_label.setText("Verifica percorso Internet in corso (nessuna modifica LTE)...")
+        self.benchmark_label.setText("Controllo della connessione in corso: nessuna impostazione viene modificata...")
         self.radio_worker.submit("route_check")
 
     def _benchmark(self):
@@ -889,8 +920,9 @@ class PocketWindow(QMainWindow):
         self._busy(False)
         self._log(("OK: " if ok else "ERRORE: ") + message)
         if command == "route_check":
-            self.benchmark_label.setText(message if ok else
-                                         "Bloccato: " + message)
+            self.benchmark_label.setText(friendly_route(ok, message))
+            if not ok:
+                self._log("Verifica connessione non riuscita. Dettagli disponibili in Attività recenti.")
         if command == "benchmark":
             self.benchmark_results = data if isinstance(data, list) else []
             if ok and self.benchmark_results:
@@ -900,15 +932,15 @@ class PocketWindow(QMainWindow):
                 })
                 self.benchmark_runs = self.benchmark_runs[-24:]
             self.benchmark_history_label.setText(
-                f"Confronti in RAM: {len(self.benchmark_runs)} sessioni "
-                "(max 24). Esportabili da Dati API."
+                f"Confronti effettuati: {len(self.benchmark_runs)} (massimo 24). "
+                "Puoi esportarli dalle opzioni avanzate."
             )
             self.benchmark_table.setRowCount(0)
             for result in self.benchmark_results:
                 idx = self.benchmark_table.rowCount()
                 self.benchmark_table.insertRow(idx)
                 values = (
-                    "B" + str(result.band), result.status,
+                    "B" + str(result.band), friendly_band_status(result.status),
                     _show(result.med_mbps), _show(result.med_ttfb_ms),
                     str(result.completed_samples),
                 )
@@ -917,14 +949,12 @@ class PocketWindow(QMainWindow):
             valid = ranking(self.benchmark_results)
             if valid:
                 best = valid[0]
-                self.benchmark_label.setText(
-                    f"Download più alto osservato: B{best.band}, "
-                    f"{best.med_mbps:.2f} Mbps (TTFB {best.med_ttfb_ms:.0f} ms). "
-                    "Non è una scelta definitiva: ripetere in orari differenti."
-                )
+                self.benchmark_label.setText(friendly_benchmark_result(best))
             else:
                 self.benchmark_label.setText(
-                    message if ok else "Benchmark interrotto o non verificato: " + message
+                    "Confronto terminato senza risultati utilizzabili. "
+                    "Vedi Attività recenti nelle opzioni avanzate."
+                    if not ok else "Non sono disponibili prove valide da confrontare."
                 )
         if command == "scan":
             self.scan_results = data if isinstance(data, list) else []
