@@ -18,9 +18,14 @@ def main() -> int:
         print("$", " ".join(command), flush=True)
         result = subprocess.run(command, cwd=ROOT, check=False)
         if result.returncode:
-            print(f"FAIL: exit code {result.returncode}", flush=True)
-            return result.returncode
-    print("PASS: syntax and unit tests (core only; no hardware/GUI smoke)", flush=True)
+            if result.returncode < 0:
+                print(f"FAIL: test process terminated by signal {-result.returncode} "
+                      "(possible native Qt crash)", flush=True)
+            else:
+                print(f"FAIL: exit code {result.returncode}", flush=True)
+            return 1
+    print("PASS: syntax, unit tests and headless Qt UI smoke "
+          "(physical modem and WAN benchmark not tested)", flush=True)
     return 0
 
 if __name__ == "__main__":
