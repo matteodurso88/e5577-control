@@ -343,6 +343,12 @@ class PocketWindow(QMainWindow):
         band_card, self.band_value, self.band_hint, _ = (
             self._summary_card("📡  Banda LTE")
         )
+        sms_card, self.sms_value, self.sms_hint, sms_content = (
+            self._summary_card("✉️  SMS")
+        )
+        self.sms_open = QPushButton("Apri messaggi")
+        self.sms_open.clicked.connect(self._open_sms)
+        sms_content.addWidget(self.sms_open)
         self.band_value.setToolTip(
             "Banda rilevata solo quando comunicata esplicitamente dal modem; "
             "con una sola banda abilitata e 4G attivo è indicata come dedotta."
@@ -356,9 +362,21 @@ class PocketWindow(QMainWindow):
             "Non equivale a RSRP, SINR o velocità Internet."
         )
         signal_content.addWidget(self.signal_gauge)
-        for tile in (network_card, signal_card, band_card):
+        for tile in (network_card, signal_card, band_card, sms_card):
             tiles.addWidget(tile, 1)
         box.addLayout(tiles)
+
+        data_bar = QHBoxLayout()
+        self.data_state = QLabel("📶  Dati mobili: stato non disponibile")
+        self.data_state.setToolTip(
+            "Questo comando gestisce Internet sulla SIM, non il Wi-Fi "
+            "né il collegamento dell'app al pocket."
+        )
+        self.data_toggle = QPushButton("Attiva dati mobili")
+        self.data_toggle.clicked.connect(self._toggle_mobile_data)
+        data_bar.addWidget(self.data_state, 1)
+        data_bar.addWidget(self.data_toggle)
+        box.addLayout(data_bar)
 
         network_group = QGroupBox("Dettagli connessione · strumenti avanzati")
         self.advanced_network_group = network_group
@@ -406,6 +424,109 @@ class PocketWindow(QMainWindow):
         self.signals.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         box.addWidget(self.signals, 1)
         return w
+
+    def _sms_tab(self):
+        """Read-only inbox; message bodies never enter self.snapshot or export."""
+        w = QWidget()
+        box = QVBoxLayout(w)
+        toolbar = QHBoxLayout()
+        self.sms_status = QLabel("Collega un pocket per consultare i messaggi ricevuti.")
+        self.sms_reload = QPushButton("Aggiorna messaggi")
+        self.sms_reload.clicked.connect(self._fetch_sms)
+        toolbar.addWidget(self.sms_status, 1)
+        toolbar.addWidget(self.sms_reload)
+        box.addLayout(toolbar)
+        self.sms_table = QTableWidget(0, 3)
+        self.sms_table.setHorizontalHeaderLabels(["Da", "Data", "Stato"])
+        self.sms_table.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.Stretch
+        )
+        self.sms_table.setSelectionBehavior(
+            QAbstractItemView.SelectionBehavior.SelectRows
+        )
+        self.sms_table.setEditTriggers(
+            QAbstractItemView.EditTrigger.NoEditTriggers
+        )
+        self.sms_table.currentCellChanged.connect(self._select_sms)
+        box.addWidget(self.sms_table, 1)
+        box.addWidget(QLabel("Testo del messaggio selezionato"))
+        self.sms_text = QTextEdit()
+        self.sms_text.setReadOnly(True)
+        self.sms_text.setPlaceholderText("Seleziona un SMS per leggerlo.")
+        box.addWidget(self.sms_text, 1)
+        hint = QLabel(
+            "Solo lettura · nessun SMS viene inviato, cancellato, "
+            "contrassegnato come letto o esportato."
+        )
+        hint.setWordWrap(True)
+        box.addWidget(hint)
+        return w
+
+    def _open_sms(self):
+        if not self.online:
+            return
+        self.tabs.setCurrentIndex(2)
+        self._fetch_sms()
+
+    def _fetch_sms(self):
+        if self.radio_worker and self.online and not self.busy:
+            self.sms_status.setText("Caricamento dei messaggi...")
+            self.radio_worker.submit("sms_fetch")
+
+    def _select_sms(self, row, column, previous_row, previous_column):
+        if 0 <= row < len(self.messages):
+            # Plain text only: never interpret an SMS as HTML.
+            self.sms_text.setPlainText(self.messages[row].content)
+        else:
+            self.sms_text.clear()
+
+    def _show_sms(self, items):
+        self.messages = list(items)
+        self.sms_table.setRowCount(0)
+        for message in self.messages:
+            index = self.sms_table.rowCount()
+            self.sms_table.insertRow(index)
+            for col, value in enumerate((
+                message.phone, message.date,
+                "Da leggere" if message.unread else "Letto",
+            )):
+                self.sms_table.setItem(index, col, QTableWidgetItem(value))
+        self.sms_status.setText(
+            f"Mostrati {len(self.messages)} messaggi ricevuti (massimo 20)."
+        )
+        if self.messages:
+            self.sms_table.selectRow(0)
+            self.sms_text.setPlainText(self.messages[0].content)
+        else:
+            self.sms_text.clear()
+
+    def _reset_sms(self):
+        self.messages.clear()
+        self.sms_table.setRowCount(0)
+        self.sms_text.clear()
+        self.sms_value.setText("—")
+        self.sms_hint.setText("Collega il pocket per vedere i messaggi")
+        self.sms_status.setText("Nessun dispositivo collegato.")
+
+    def _toggle_mobile_data(self):
+        if not self.online or self.busy or self.mobile_enabled is None:
+            return
+        enable = not self.mobile_enabled
+        if not enable:
+            message = (
+                "Disattivare Internet mobile sulla SIM?\n\n"
+                "Il Wi-Fi e il collegamento locale della GUI dovrebbero "
+                "restare disponibili, ma gli altri dispositivi perderanno "
+                "l'accesso Internet tramite il pocket.\n\n"
+                "Vuoi continuare?"
+            )
+            if QMessageBox.question(
+                self, "Disattiva dati mobili", message
+            ) != QMessageBox.StandardButton.Yes:
+                return
+        self._busy(True)
+        self.data_state.setText("📶  Aggiornamento dati mobili in corso...")
+        self.radio_worker.submit("mobile_switch", enabled=enable)
 
     def _bands_tab(self):
         w = QWidget()
