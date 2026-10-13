@@ -5,12 +5,12 @@ No network, keyring, Huawei API or radio writes.
 
 import os
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
 from PySide6.QtCore import QCoreApplication, QEvent, Qt
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QMessageBox
 from shiboken6 import delete as delete_qt_object
 
 from pocket_manager.qt_app import PocketWindow
@@ -135,6 +135,53 @@ class BasicAdvancedViewTests(unittest.TestCase):
         self.app.processEvents()
         self.assertFalse(self.window.advanced_network_group.isVisible())
         self.assertTrue(self.window.band_value.isVisible())
+
+    def test_sms_home_tile_and_inbox_are_plain_text(self):
+        from pocket_manager.device_features import SmsMessage
+
+        self.window._reading({
+            "sms_count": {"LocalInbox": "5", "LocalUnread": "2"},
+            "mobile_data": {"dataswitch": "1"},
+        })
+        self.assertEqual(self.window.sms_value.text(), "2 da leggere")
+        self.assertIn("Ricevuti: 5", self.window.sms_hint.text())
+        self.window._show_sms([
+            SmsMessage("7", "+391111", "2026-10-13 10:30",
+                       "<img src=x onerror=alert(1)> SMS test", True)
+        ])
+        self.window.tabs.setCurrentIndex(2)
+        self.app.processEvents()
+        self.assertEqual(self.window.sms_table.rowCount(), 1)
+        self.assertIn("<img", self.window.sms_text.toPlainText())
+        self.assertEqual(self.window.sms_text.toHtml().count("<img"), 0)
+        self.assertNotIn("SMS test", self.window.raw.toPlainText())
+        self.assertNotIn("SMS test", self.window.log.toPlainText())
+
+    def test_mobile_toggle_requires_confirmation_and_never_changes_gui_login(self):
+        self.window._reading({"mobile_data": {"dataswitch": "1"}})
+        self.window.radio_worker = Mock()
+        self.window._set_online(True)
+        self.assertEqual(self.window.data_toggle.text(), "Disattiva dati mobili")
+        with patch("pocket_manager.qt_app.QMessageBox.question",
+                   return_value=QMessageBox.StandardButton.No):
+            self.window._toggle_mobile_data()
+        self.window.radio_worker.submit.assert_not_called()
+        with patch("pocket_manager.qt_app.QMessageBox.question",
+                   return_value=QMessageBox.StandardButton.Yes):
+            self.window._toggle_mobile_data()
+        self.window.radio_worker.submit.assert_called_once_with(
+            "mobile_switch", enabled=False
+        )
+        self.assertTrue(self.window.busy)
+        self.window.radio_worker = None
+        self.window.busy = False
+
+    def test_mobile_switch_unknown_state_is_disabled(self):
+        self.window._reading({"mobile_data": {"__error__": "No support"}})
+        self.window._set_online(True)
+        self.assertFalse(self.window.data_toggle.isEnabled())
+        self.assertEqual(self.window.data_toggle.text(), "Comando non disponibile")
+        self.assertTrue(self.window.tabs.isTabVisible(2))
 
     def test_benchmark_labels_explain_latency_without_jargon(self):
         headers = [
