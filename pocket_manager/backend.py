@@ -94,16 +94,16 @@ class HuaweiRadioBackend:
         group = getattr(self.client, "sms", None)
         return self._read(group, "sms_count") if group is not None else {"__error__": "SMS non supportati"}
 
-    def sms_inbox(self, *, limit: int = 20):
+    def sms_inbox(self, *, page: int = 1, limit: int = 20):
         """User-triggered, in-memory SMS read; never included in snapshots."""
         if self.client is None:
             raise RadioError("Pocket non connesso")
-        if not 1 <= limit <= 50:
-            raise ValueError("Numero di SMS fuori limite")
+        if not 1 <= page <= 100 or not 1 <= limit <= 50:
+            raise ValueError("Pagina o numero SMS fuori limite")
         sms = getattr(self.client, "sms", None)
         if sms is None or not hasattr(sms, "get_sms_list"):
             raise UnsupportedFeature("Lettura SMS non supportata dal firmware")
-        return sms_messages(sms.get_sms_list(page=1, read_count=limit))
+        return sms_messages(sms.get_sms_list(page=page, read_count=limit))
 
     def set_mobile_data(self, enabled: bool) -> bool:
         """Change the WAN mobile-data switch, never Wi-Fi or the GUI session.
