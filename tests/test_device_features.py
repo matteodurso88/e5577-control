@@ -94,6 +94,14 @@ class FeatureBackendTests(unittest.TestCase):
         self.assertNotIn("Codice riservato", str(self.backend.sms_counts()))
         self.assertNotIn("Codice riservato", str(safe_json_data(self.backend.sms_counts())))
 
+    def test_sms_inbox_pagination_uses_requested_page(self):
+        self.backend.sms_inbox(page=2)
+        self.assertEqual(self.sms.requests, [(2, 20)])
+        with self.assertRaises(ValueError):
+            self.backend.sms_inbox(page=0)
+        with self.assertRaises(ValueError):
+            self.backend.sms_inbox(page=101)
+
     def test_no_messages_if_endpoint_unsupported(self):
         self.backend.client.sms = None
         with self.assertRaises(UnsupportedFeature):
