@@ -496,6 +496,9 @@ class PocketWindow(QMainWindow):
 
     def _fetch_sms(self):
         if self.radio_worker and self.online and not self.busy:
+            # Serialize pagination: don't let multiple queued requests display
+            # an older page under the label of a newer page.
+            self._busy(True)
             self.sms_status.setText("Caricamento dei messaggi...")
             self.radio_worker.submit("sms_fetch", page=self.sms_page)
 
