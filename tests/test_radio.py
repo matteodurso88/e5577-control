@@ -8,6 +8,7 @@ from pocket_manager.backend import HuaweiRadioBackend, RadioError
 from pocket_manager.radio import (
     RadioConfig, bands_from_mask, mask_hex, normalized_mask,
     numeric_metric, parse_mask, safe_json_data, supported_bands,
+    has_radio_measurements,
 )
 
 
@@ -37,6 +38,14 @@ class MasksTest(unittest.TestCase):
 
     def test_no_capabilities_is_not_all_bands(self):
         self.assertEqual(supported_bands({}), ())
+
+    def test_blank_firmware_signal_is_not_lte_measurement(self):
+        signal = {"mode": "7", "psatt": "1", "rsrp": "", "rsrq": "",
+                  "sinr": "", "rssi": "", "pci": ""}
+        self.assertFalse(has_radio_measurements(signal))
+        self.assertFalse(has_radio_measurements({}))
+        self.assertFalse(has_radio_measurements({"__error__": "unavailable"}))
+        self.assertTrue(has_radio_measurements({**signal, "rsrp": "-90dBm"}))
 
     def test_stats_and_redaction(self):
         self.assertEqual(numeric_metric("−91 dBm"), -91.0)
@@ -142,6 +151,19 @@ class BackendTest(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0]["band"], 3)
         self.assertEqual(result[0]["status"], "OK")
+        self.assertEqual(self.backend.config().lte_band, "800d5")
+
+    @patch("pocket_manager.backend.time.sleep", lambda _: None)
+    def test_scan_with_only_mode_and_psatt_is_not_ok(self):
+        self.backend.client.device.signal = lambda: {
+            "mode": "7", "psatt": "1", "rsrp": "", "rsrq": "",
+            "rssi": "", "sinr": "", "pci": ""
+        }
+        results = self.backend.scan([7], threading.Event(), lambda _: None)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["status"], "Nessuna misura")
+        self.assertIsNone(results[0]["rsrp"])
+        self.assertIsNone(results[0]["sinr"])
         self.assertEqual(self.backend.config().lte_band, "800d5")
 
     def test_reject_nonlocal_host(self):
