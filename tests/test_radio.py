@@ -8,7 +8,7 @@ from pocket_manager.backend import HuaweiRadioBackend, RadioError
 from pocket_manager.radio import (
     RadioConfig, bands_from_mask, mask_hex, normalized_mask,
     numeric_metric, parse_mask, safe_json_data, supported_bands,
-    has_radio_measurements,
+    has_radio_measurements, network_overview,
 )
 
 
@@ -46,6 +46,33 @@ class MasksTest(unittest.TestCase):
         self.assertFalse(has_radio_measurements({}))
         self.assertFalse(has_radio_measurements({"__error__": "unavailable"}))
         self.assertTrue(has_radio_measurements({**signal, "rsrp": "-90dBm"}))
+
+    def test_real_e5577_status_has_connection_without_rf_measurements(self):
+        # Sanitized Dell observation: firmware 21.328.62.00.55.
+        status = {
+            "ConnectionStatus": "901", "CurrentNetworkType": "19",
+            "SimStatus": "1", "SignalIcon": "1", "maxsignal": "5",
+            "SignalStrength": None,
+        }
+        signal = {"mode": "7", "psatt": "1", "rsrp": None,
+                  "rsrq": None, "sinr": None, "rssi": None, "pci": None}
+        result = network_overview(status, {"FullName": "WINDTRE"}, signal)
+        self.assertEqual(result["connection"], "Connessa (secondo firmware)")
+        self.assertEqual(result["network"], "4G LTE")
+        self.assertEqual(result["sim"], "Pronta")
+        self.assertEqual(result["operator"], "WINDTRE")
+        self.assertEqual(result["bars"], "1/5 tacche (indicatore firmware)")
+        self.assertIn("indisponibili", result["rf"])
+        self.assertFalse(has_radio_measurements(signal))
+
+    def test_unknown_status_does_not_invent_connection_or_signal(self):
+        result = network_overview({"__error__": "100002"}, {}, {})
+        self.assertEqual(result["connection"], "Non disponibile")
+        self.assertEqual(result["bars"], "Non disponibile")
+        self.assertEqual(result["network"], "Non disponibile")
+        result = network_overview({"ConnectionStatus": "902",
+                                   "SignalIcon": "5", "maxsignal": "5"}, {}, {})
+        self.assertEqual(result["connection"], "Disconnessa")
 
     def test_stats_and_redaction(self):
         self.assertEqual(numeric_metric("−91 dBm"), -91.0)
@@ -97,6 +124,11 @@ class BackendTest(unittest.TestCase):
     def setUp(self):
         self.backend = HuaweiRadioBackend("192.168.8.1", "admin", "test")
         self.backend.client = FakeClient()
+
+    def test_periodic_snapshot_refreshes_status(self):
+        snapshot = self.backend.snapshot()
+        self.assertEqual(snapshot["monitoring_status"]["ConnectionStatus"], "901")
+        self.assertNotIn("device_information", snapshot)
 
     def test_full_snapshot_includes_status_and_auth_model(self):
         snapshot = self.backend.snapshot(full=True)
