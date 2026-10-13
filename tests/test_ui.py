@@ -64,6 +64,50 @@ class BasicAdvancedViewTests(unittest.TestCase):
         self.assertEqual(self.window.tabs.currentIndex(), 0)
         self.assertFalse(self.window.tabs.isTabVisible(4))
 
+    def test_dashboard_cards_show_deduced_b7_and_firmware_signal_bar(self):
+        payload = {
+            "net_mode": {"LTEBand": "40", "NetworkMode": "00"},
+            "monitoring_status": {
+                "ConnectionStatus": "901", "CurrentNetworkType": "19",
+                "SignalIcon": "1", "maxsignal": "5", "SimStatus": "1",
+            },
+            "plmn": {"FullName": "WINDTRE", "Rat": "7"},
+            "signal": {"lte_bandinfo": None, "rsrp": None, "sinr": None},
+        }
+        self.window._reading(payload)
+        self.assertIn("4G LTE", self.window.network_value.text())
+        self.assertIn("WINDTRE", self.window.network_hint.text())
+        self.assertEqual(self.window.band_value.text(), "B7 · dedotta")
+        self.assertIn("unica banda possibile", self.window.band_hint.text())
+        self.assertEqual(self.window.signal_value.text(), "1 su 5 tacche")
+        self.assertEqual(self.window.signal_gauge.value(), 1)
+        self.assertEqual(self.window.signal_gauge.maximum(), 5)
+
+    def test_dashboard_keeps_uncertainty_when_multiple_bands_are_allowed(self):
+        self.window._reading({
+            "net_mode": {"LTEBand": "800d5", "NetworkMode": "00"},
+            "monitoring_status": {
+                "ConnectionStatus": "901", "CurrentNetworkType": "19",
+                "SignalIcon": "0", "maxsignal": "5",
+            },
+            "plmn": {"FullName": "WINDTRE", "Rat": "7"},
+            "signal": {"lte_bandinfo": None},
+        })
+        self.assertEqual(self.window.band_value.text(), "Non rilevabile")
+        self.assertIn("B1", self.window.band_hint.text())
+        self.assertEqual(self.window.signal_gauge.value(), 0)
+
+    def test_advanced_view_still_contains_unabridged_network_fields(self):
+        self.window.advanced_toggle.setChecked(True)
+        self.app.processEvents()
+        self.assertTrue(self.window.advanced_network_group.isVisible())
+        self.assertIn("connection", self.window.network_labels)
+        self.assertIn("rf", self.window.network_labels)
+        self.window.advanced_toggle.setChecked(False)
+        self.app.processEvents()
+        self.assertFalse(self.window.advanced_network_group.isVisible())
+        self.assertTrue(self.window.band_value.isVisible())
+
     def test_benchmark_labels_explain_latency_without_jargon(self):
         headers = [
             self.window.benchmark_table.horizontalHeaderItem(i).text()
