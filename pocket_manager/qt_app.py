@@ -218,6 +218,7 @@ class PocketWindow(QMainWindow):
         tabs.addTab(self._monitor_tab(), "Monitor LTE")
         tabs.addTab(self._timeline_tab(), "Storico live")
         tabs.addTab(self._bands_tab(), "Bande / Scanner")
+        tabs.addTab(self._benchmark_tab(), "Benchmark LTE")
         tabs.addTab(self._diagnostics_tab(), "Dati API")
         outer.addWidget(tabs, 1)
         outer.addWidget(QLabel("Registro operazioni"))
@@ -324,8 +325,23 @@ class PocketWindow(QMainWindow):
         box.addWidget(self.scan_status)
         self.scan_table = QTableWidget(0, 7)
         self.scan_table.setHorizontalHeaderLabels(["Banda", "RSRP", "RSRQ", "SINR", "RSSI", "PCI", "Stato"])
-        self.scan_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        box.addWidget(self.scan_table, 1)
+        self.scan_table.horizontalHeader().setSectionResizeMode(QHeaderView.Re(self.benchmark_table)
+        box.addWidget(bench_group, 1)
+        self._mask()
+        return w
+
+    def _benchmark_tab(self):
+        w = QWidget()
+        box = QVBoxLayout(w)
+        selector = QHBoxLayout()
+        self.bench_checks = {}
+        for band in FALLBACK_BANDS:
+            checkbox = QCheckBox(f"B{band} ({FREQUENCIES[band]} MHz)")
+            checkbox.setChecked(band in (1, 3, 7, 20))
+            selector.addWidget(checkbox)
+            self.bench_checks[band] = checkbox
+        box.addWidget(QLabel("Bande LTE consentite da provare, una per volta"))
+        box.addLayout(selector)
         bench_group = QGroupBox("Benchmark bande: connettività LTE + download reale via pocket")
         bench_layout = QVBoxLayout(bench_group)
         warn = QLabel(
@@ -371,7 +387,6 @@ class PocketWindow(QMainWindow):
         )
         bench_layout.addWidget(self.benchmark_table)
         box.addWidget(bench_group, 1)
-        self._mask()
         return w
 
     def _timeline_tab(self):
@@ -607,6 +622,10 @@ class PocketWindow(QMainWindow):
                 self.detected_model = model
                 self._log("Modello dichiarato dal firmware: " + model[:72])
         self.available = supported_bands(snapshot.get("mode_list"))
+        for band, check in self.bench_checks.items():
+            check.setEnabled(band in self.available)
+            if band not in self.available:
+                check.setChecked(False)
         if self.available:
             self.support.setText("Bande annunciate via API: " +
                                  ", ".join("B" + str(b) for b in self.available))
@@ -764,8 +783,12 @@ class PocketWindow(QMainWindow):
     def _benchmark(self):
         if not self.online or self.busy or self.radio_worker is None:
             return
-        bands = self._selection()
+        bands = [
+            band for band, check in self.bench_checks.items()
+            if check.isChecked() and check.isEnabled()
+        ]
         if not bands:
+            QMessageBox.warning(self, "Benchmark", "Seleziona almeno una banda LTE supportata.")
             return
         repeats = int(self.test_repeats.currentData())
         size = int(self.test_size.currentData())
