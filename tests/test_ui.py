@@ -200,6 +200,36 @@ class BasicAdvancedViewTests(unittest.TestCase):
         self.assertNotIn("Seconda riga", self.window.raw.toPlainText())
         self.assertNotIn("Seconda riga", self.window.log.toPlainText())
 
+    def test_sms_reader_closes_when_disconnecting(self):
+        from pocket_manager.device_features import SmsMessage
+
+        self.window._show_sms([
+            SmsMessage("1", "test", "2026-10-13", "Test privato", True)
+        ])
+        fake_reader = Mock()
+        self.window.sms_reader_dialog = fake_reader
+        self.window._reset_sms()
+        fake_reader.reject.assert_called_once()
+        self.assertIsNone(self.window.sms_reader_dialog)
+        self.assertEqual(self.window.messages, [])
+        self.assertEqual(self.window.sms_table.rowCount(), 0)
+        self.assertEqual(self.window.sms_text.toPlainText(), "")
+
+    def test_diagnostics_split_keeps_radio_measurements_and_api_export(self):
+        self.window.advanced_toggle.setChecked(True)
+        self.window.tabs.setCurrentIndex(5)
+        self.app.processEvents()
+        diagnostics = self.window.tabs.widget(5)
+        tab_groups = diagnostics.findChildren(type(self.window.tabs))
+        self.assertEqual(len(tab_groups), 1)
+        sections = tab_groups[0]
+        self.assertEqual(sections.tabText(0), "Misure radio")
+        self.assertEqual(sections.tabText(1), "API ed esportazione")
+        self.assertTrue(self.window.advanced_signal_group.isVisible())
+        sections.setCurrentIndex(1)
+        self.app.processEvents()
+        self.assertTrue(self.window.raw.isVisible())
+
     def test_sms_home_tile_and_inbox_are_plain_text(self):
         from pocket_manager.device_features import SmsMessage
 
