@@ -15,6 +15,7 @@ from PySide6.QtCore import QThread, Signal
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QFileDialog, QGridLayout,
     QGroupBox, QHBoxLayout, QHeaderView, QInputDialog, QLabel, QLineEdit,
+    QFrame, QProgressBar, QStyle,
     QMainWindow, QMessageBox, QPushButton, QTableWidget,
     QTableWidgetItem, QTabWidget, QTextEdit, QVBoxLayout, QWidget,
 )
@@ -23,7 +24,7 @@ from . import __version__
 from .backend import HuaweiRadioBackend
 from .discovery import discover_report
 from .profiles import PocketProfile, ProfileStore, CredentialStoreError
-from .radio import FALLBACK_BANDS, FREQUENCIES, MODES, PRESETS, mask_hex, supported_bands, bands_from_mask, safe_json_data, has_radio_measurements, network_overview
+from .radio import FALLBACK_BANDS, FREQUENCIES, MODES, PRESETS, mask_hex, supported_bands, bands_from_mask, safe_json_data, has_radio_measurements, network_overview, band_indicator
 from .telemetry import TelemetryTimeline, format_rate, traffic_rates
 from .band_benchmark import (run_band_benchmark, resolve_endpoint,
                              check_route, ranking)
@@ -243,6 +244,12 @@ class PocketWindow(QMainWindow):
         self.tabs.addTab(self._bands_tab(), "Controllo manuale")
         self.tabs.addTab(self._benchmark_tab(), "Confronta bande")
         self.tabs.addTab(self._diagnostics_tab(), "Dettagli tecnici")
+        native = QStyle.StandardPixmap
+        self.tabs.setTabIcon(0, self.style().standardIcon(native.SP_DriveNetIcon))
+        self.tabs.setTabIcon(1, self.style().standardIcon(native.SP_FileDialogDetailedView))
+        self.tabs.setTabIcon(2, self.style().standardIcon(native.SP_FileDialogListView))
+        self.tabs.setTabIcon(3, self.style().standardIcon(native.SP_DialogApplyButton))
+        self.tabs.setTabIcon(4, self.style().standardIcon(native.SP_FileDialogInfoView))
         outer.addWidget(self.tabs, 1)
         self.log_title = QLabel("Registro dettagliato · diagnostica")
         outer.addWidget(self.log_title)
@@ -254,6 +261,13 @@ class PocketWindow(QMainWindow):
             "QWidget {font-size: 13px;} QPushButton {padding: 6px 10px;}"
             "QGroupBox {font-weight: bold; margin-top: 10px; padding-top: 9px;}"
             "QGroupBox::title {subcontrol-origin: margin; left: 8px;}"
+            "QFrame#summaryCard {border: 1px solid palette(mid); "
+            "border-radius: 9px; background: palette(alternate-base);}"
+            "QLabel#summaryValue {font-size: 21px; font-weight: 650;}"
+            "QLabel#summaryHint {font-size: 11px; color: palette(mid);}"
+            "QProgressBar {border-radius: 4px; min-height: 10px; max-height: 10px; "
+            "background: palette(base);}"
+            "QProgressBar::chunk {background: #4795c7; border-radius: 4px;}"
         )
 
     def _set_advanced(self, enabled: bool):
@@ -265,16 +279,66 @@ class PocketWindow(QMainWindow):
         self.username_caption.setVisible(enabled)
         self.username.setVisible(enabled)
         self.advanced_signal_group.setVisible(enabled)
+        self.advanced_network_group.setVisible(enabled)
         self.signals.setVisible(enabled)
         self.log_title.setVisible(enabled)
         self.log.setVisible(enabled)
         if not enabled and self.tabs.currentIndex() in (2, 4):
             self.tabs.setCurrentIndex(0)
 
+    def _summary_card(self, heading: str):
+        """Reusable native Qt status card; text works even without emoji fonts."""
+        frame = QFrame()
+        frame.setObjectName("summaryCard")
+        frame.setFrameShape(QFrame.Shape.StyledPanel)
+        content = QVBoxLayout(frame)
+        content.setContentsMargins(14, 12, 14, 12)
+        content.setSpacing(5)
+        caption = QLabel(heading)
+        value = QLabel("—")
+        value.setObjectName("summaryValue")
+        value.setWordWrap(True)
+        hint = QLabel("")
+        hint.setObjectName("summaryHint")
+        hint.setWordWrap(True)
+        content.addWidget(caption)
+        content.addWidget(value)
+        content.addWidget(hint)
+        return frame, value, hint, content
+
     def _monitor_tab(self):
         w = QWidget()
         box = QVBoxLayout(w)
-        network_group = QGroupBox("La tua connessione")
+
+        tiles = QHBoxLayout()
+        network_card, self.network_value, self.network_hint, _ = (
+            self._summary_card("🌐  Rete mobile")
+        )
+        signal_card, self.signal_value, self.signal_hint, signal_content = (
+            self._summary_card("📶  Segnale")
+        )
+        band_card, self.band_value, self.band_hint, _ = (
+            self._summary_card("📡  Banda LTE")
+        )
+        self.band_value.setToolTip(
+            "Banda rilevata solo quando comunicata esplicitamente dal modem; "
+            "con una sola banda abilitata e 4G attivo è indicata come dedotta."
+        )
+        self.signal_gauge = QProgressBar()
+        self.signal_gauge.setRange(0, 5)
+        self.signal_gauge.setValue(-1)
+        self.signal_gauge.setTextVisible(False)
+        self.signal_gauge.setToolTip(
+            "Indicatore approssimativo restituito dal modem (0–5 tacche). "
+            "Non equivale a RSRP, SINR o velocità Internet."
+        )
+        signal_content.addWidget(self.signal_gauge)
+        for tile in (network_card, signal_card, band_card):
+            tiles.addWidget(tile, 1)
+        box.addLayout(tiles)
+
+        network_group = QGroupBox("Dettagli connessione · strumenti avanzati")
+        self.advanced_network_group = network_group
         network_grid = QGridLayout(network_group)
         self.network_labels = {}
         for n, (key, caption) in enumerate((
