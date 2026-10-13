@@ -9,7 +9,9 @@ from unittest.mock import patch
 
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
+from PySide6.QtCore import QCoreApplication, QEvent, Qt
 from PySide6.QtWidgets import QApplication
+from shiboken6 import delete as delete_qt_object
 
 from pocket_manager.qt_app import PocketWindow
 
@@ -17,18 +19,37 @@ from pocket_manager.qt_app import PocketWindow
 class BasicAdvancedViewTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.app = QApplication.instance() or QApplication([])
+        existing = QApplication.instance()
+        cls._owns_app = existing is None
+        cls.app = existing if existing is not None else QApplication([])
+
+    @classmethod
+    def tearDownClass(cls):
+        # Dispose of the Qt application before Python module finalization.
+        # Otherwise some PySide6/offscreen versions can segfault *after*
+        # unittest has already printed its summary.
+        if cls._owns_app:
+            cls.app.quit()
+            cls.app.processEvents()
+            delete_qt_object(cls.app)
+        cls.app = None
 
     def setUp(self):
         with patch("pocket_manager.qt_app.ProfileStore") as factory:
             factory.return_value.list.return_value = []
             self.window = PocketWindow()
+        # Keep QWidget visible to the test, without mapping a native window.
+        # This exercises Qt visibility and tabs without the offscreen renderer.
+        self.window.setAttribute(Qt.WidgetAttribute.WA_DontShowOnScreen, True)
         self.window.show()
         self.app.processEvents()
 
     def tearDown(self):
         self.window.close()
+        self.window.deleteLater()
+        QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
         self.app.processEvents()
+        self.window = None
 
     def test_simple_mode_shows_main_tasks_hides_technical_panels(self):
         tabs = self.window.tabs
@@ -43,7 +64,12 @@ class BasicAdvancedViewTests(unittest.TestCase):
         self.assertFalse(self.window.host.isVisible())
         self.assertFalse(self.window.signals.isVisible())
         self.assertFalse(self.window.log.isVisible())
+        # A child of a non-selected tab is not isVisible() in Qt, even
+        # when that tab is enabled and available. Select the tab first.
+        tabs.setCurrentIndex(3)
+        self.app.processEvents()
         self.assertTrue(self.window.benchmark_btn.isVisible())
+        tabs.setCurrentIndex(0)
 
     def test_advanced_toggle_keeps_radio_and_diagnostic_controls(self):
         self.window.advanced_toggle.setChecked(True)
