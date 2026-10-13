@@ -160,6 +160,7 @@ class PocketWindow(QMainWindow):
         self.snapshot: dict = {}
         self.scan_results: list[dict] = []
         self.benchmark_results = []
+        self.benchmark_runs: list[dict] = []
         self.available: tuple[int, ...] = ()
         self.has_measurements = False
         self.detected_model = ""
@@ -354,6 +355,12 @@ class PocketWindow(QMainWindow):
         self.benchmark_label = QLabel("Nessun benchmark eseguito. Uscita WAN da verificare.")
         self.benchmark_label.setWordWrap(True)
         bench_layout.addWidget(self.benchmark_label)
+        self.benchmark_history_label = QLabel(
+            "Confronti in RAM: 0 sessioni. Ripetere in fasce orarie diverse; "
+            "export JSON facoltativo dalla scheda Dati API."
+        )
+        self.benchmark_history_label.setWordWrap(True)
+        bench_layout.addWidget(self.benchmark_history_label)
         self.benchmark_table = QTableWidget(0, 5)
         self.benchmark_table.setHorizontalHeaderLabels(
             ["Banda permessa", "Stato", "Download mediano (Mbps)",
@@ -812,6 +819,16 @@ class PocketWindow(QMainWindow):
                                          "Bloccato: " + message)
         if command == "benchmark":
             self.benchmark_results = data if isinstance(data, list) else []
+            if ok and self.benchmark_results:
+                self.benchmark_runs.append({
+                    "at": datetime.now().astimezone().isoformat(timespec="seconds"),
+                    "results": [result.safe_dict() for result in self.benchmark_results],
+                })
+                self.benchmark_runs = self.benchmark_runs[-24:]
+            self.benchmark_history_label.setText(
+                f"Confronti in RAM: {len(self.benchmark_runs)} sessioni "
+                "(max 24). Esportabili da Dati API."
+            )
             self.benchmark_table.setRowCount(0)
             for result in self.benchmark_results:
                 idx = self.benchmark_table.rowCount()
@@ -860,7 +877,8 @@ class PocketWindow(QMainWindow):
                "snapshot": safe_json_data(self.snapshot),
                "scan": safe_json_data(self.scan_results),
                "telemetry": self.timeline.export(),
-               "band_benchmark": [row.safe_dict() for row in self.benchmark_results]}
+               "band_benchmark": [row.safe_dict() for row in self.benchmark_results],
+               "band_benchmark_runs": self.benchmark_runs}
         try:
             Path(path).write_text(json.dumps(doc, ensure_ascii=False, indent=2), encoding="utf-8")
             self._log("JSON diagnostico esportato con redazione campi sensibili noti")
