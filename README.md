@@ -2,13 +2,15 @@
 
 GUI radio-only per **Huawei E5577Cs-321**. Non sostituisce la Web UI: si concentra su funzioni LTE avanzate escluse o nascoste dall'interfaccia Huawei.
 
-> **Stato GitHub (2026-10-13):** i sorgenti GUI PySide6, adapter Huawei, scanner, discovery, profili salvati e suite di test sono sul branch `work/pocket-manager-radio-v01`. **L'owner ha confermato i collaudi UX su Dell. Il gate dell'ultimo commit e le nuove build Linux/Windows richiedono verifica sulle rispettive piattaforme; non sono release certificate.** Lo ZIP sperimentale precedente non è fonte canonica.
+> **Stato:** WORKSHOP è la technical home del progetto. La promozione a Product resta una decisione distinta. Lo storico dei gate e dei collaudi si trova nella Issue #17 e nella Draft PR #18; non si deduce una validazione hardware Windows dai test CI.
 
-## Build desktop Linux e Windows
+## Release installabile Linux e Windows
 
-**Packaging candidato** su GitHub Actions per Linux x86-64 (tar.gz portabile) e Windows x64 (zip con PocketRadioManager.exe). Il workflow compila sui runner nativi, esegue il gate test Python/Qt, lo smoke offline del programma congelato e allega checksum SHA-256. Nessun pacchetto viene incluso nel repository, e gli archivi restano unsigned/non-installer finché non sono collaudati.
+**Release WORKSHOP v0.1.0**: installer Debian .deb con icona e menu applicazioni, installer Windows .exe con voce nel menu Start e disinstallazione, oltre ai portabili Linux .tar.gz / Windows .zip. La sorgente vettoriale del logo è assets/pocket-radio-manager-icon.svg.
 
-Procedura per scaricare gli artifact, limitazioni, controlli di sicurezza e istruzioni di compilazione manuale: **[DESKTOP_BUILDS.md](docs/DESKTOP_BUILDS.md)**. Workflow: **[pocket-radio-manager-desktop.yml](../.github/workflows/pocket-radio-manager-desktop.yml)**.
+La pipeline GitHub Actions esegue test e packaging nativi, quindi pubblica la release scoped tramite tag **pocket-radio-manager/v0.1.0** dopo il merge in main e solo se entrambi i job passano. La release è del repository WORKSHOP ma contiene soltanto gli artefatti Pocket Radio Manager; gli altri sottoprogetti usano versioni indipendenti.
+
+I pacchetti non sono firmati; gli installer potrebbero essere segnalati dal sistema operativo. Tutte le istruzioni per download, integrazione col desktop, disinstallazione e checksum sono in **[DESKTOP_BUILDS.md](docs/DESKTOP_BUILDS.md)**. Le note di release sono in **[RELEASE_NOTES_v0.1.0.md](docs/RELEASE_NOTES_v0.1.0.md)**.
 ## Workflow canonico
 
 - Codice/versionamento: `matteodurso88/workshop/pocket-manager/` su `work/*`.
