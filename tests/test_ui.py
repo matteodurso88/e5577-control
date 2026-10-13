@@ -55,18 +55,20 @@ class BasicAdvancedViewTests(unittest.TestCase):
         tabs = self.window.tabs
         self.assertEqual(tabs.tabText(0), "Stato connessione")
         self.assertEqual(tabs.tabText(1), "Andamento")
-        self.assertEqual(tabs.tabText(3), "Confronta bande")
+        self.assertEqual(tabs.tabText(2), "Messaggi")
+        self.assertEqual(tabs.tabText(4), "Confronta bande")
         self.assertTrue(tabs.isTabVisible(0))
         self.assertTrue(tabs.isTabVisible(1))
-        self.assertTrue(tabs.isTabVisible(3))
-        self.assertFalse(tabs.isTabVisible(2))
-        self.assertFalse(tabs.isTabVisible(4))
+        self.assertTrue(tabs.isTabVisible(2))
+        self.assertTrue(tabs.isTabVisible(4))
+        self.assertFalse(tabs.isTabVisible(3))
+        self.assertFalse(tabs.isTabVisible(5))
         self.assertFalse(self.window.host.isVisible())
         self.assertFalse(self.window.signals.isVisible())
         self.assertFalse(self.window.log.isVisible())
         # A child of a non-selected tab is not isVisible() in Qt, even
         # when that tab is enabled and available. Select the tab first.
-        tabs.setCurrentIndex(3)
+        tabs.setCurrentIndex(4)
         self.app.processEvents()
         self.assertTrue(self.window.benchmark_btn.isVisible())
         tabs.setCurrentIndex(0)
@@ -74,8 +76,8 @@ class BasicAdvancedViewTests(unittest.TestCase):
     def test_advanced_toggle_keeps_radio_and_diagnostic_controls(self):
         self.window.advanced_toggle.setChecked(True)
         self.app.processEvents()
-        self.assertTrue(self.window.tabs.isTabVisible(2))
-        self.assertTrue(self.window.tabs.isTabVisible(4))
+        self.assertTrue(self.window.tabs.isTabVisible(3))
+        self.assertTrue(self.window.tabs.isTabVisible(5))
         self.assertTrue(self.window.host.isVisible())
         self.assertTrue(self.window.signals.isVisible())
         self.assertTrue(self.window.log.isVisible())
@@ -84,11 +86,11 @@ class BasicAdvancedViewTests(unittest.TestCase):
             self.window.scan_table.horizontalHeaderItem(i).text()
             for i in range(self.window.scan_table.columnCount())
         ])
-        self.window.tabs.setCurrentIndex(4)
+        self.window.tabs.setCurrentIndex(5)
         self.window.advanced_toggle.setChecked(False)
         self.app.processEvents()
         self.assertEqual(self.window.tabs.currentIndex(), 0)
-        self.assertFalse(self.window.tabs.isTabVisible(4))
+        self.assertFalse(self.window.tabs.isTabVisible(5))
 
     def test_dashboard_cards_show_deduced_b7_and_firmware_signal_bar(self):
         payload = {
