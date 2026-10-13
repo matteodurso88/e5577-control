@@ -112,6 +112,9 @@ class FakeMonitoring:
     def status(self):
         return {"ConnectionStatus": "901"}
 
+    def traffic_statistics(self):
+        return {"CurrentDownloadRate": "4096", "CurrentUploadRate": "2048"}
+
 
 class FakeClient:
     def __init__(self):
@@ -128,6 +131,7 @@ class BackendTest(unittest.TestCase):
     def test_periodic_snapshot_refreshes_status(self):
         snapshot = self.backend.snapshot()
         self.assertEqual(snapshot["monitoring_status"]["ConnectionStatus"], "901")
+        self.assertEqual(snapshot["traffic_statistics"]["CurrentDownloadRate"], "4096")
         self.assertNotIn("device_information", snapshot)
 
     def test_full_snapshot_includes_status_and_auth_model(self):
