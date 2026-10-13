@@ -159,6 +159,7 @@ class PocketWindow(QMainWindow):
         self.busy = False
         self.snapshot: dict = {}
         self.scan_results: list[dict] = []
+        self.benchmark_results = []
         self.available: tuple[int, ...] = ()
         self.has_measurements = False
         self.detected_model = ""
@@ -324,6 +325,45 @@ class PocketWindow(QMainWindow):
         self.scan_table.setHorizontalHeaderLabels(["Banda", "RSRP", "RSRQ", "SINR", "RSSI", "PCI", "Stato"])
         self.scan_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         box.addWidget(self.scan_table, 1)
+        bench_group = QGroupBox("Benchmark bande: connettività LTE + download reale via pocket")
+        bench_layout = QVBoxLayout(bench_group)
+        warn = QLabel(
+            "Il Dell DEVE usare il pocket come gateway Internet: in caso contrario "
+            "il test viene BLOCCATO prima di cambiare bande. Maschere singole B1/B3/"
+            "B5/B7/B8/B20, non serving-band certa. I test consumano dati mobili."
+        )
+        warn.setWordWrap(True)
+        bench_layout.addWidget(warn)
+        bench_buttons = QHBoxLayout()
+        self.test_size = QComboBox()
+        self.test_size.addItem("1 MiB per prova", 1048576)
+        self.test_size.addItem("4 MiB per prova", 4194304)
+        self.test_repeats = QComboBox()
+        self.test_repeats.addItem("1 prova", 1)
+        self.test_repeats.addItem("2 prove", 2)
+        self.test_repeats.addItem("3 prove", 3)
+        self.test_repeats.setCurrentIndex(1)
+        self.route_btn = QPushButton("Verifica uscita Internet")
+        self.route_btn.clicked.connect(self._route_check)
+        self.benchmark_btn = QPushButton("Benchmark bande selezionate")
+        self.benchmark_btn.clicked.connect(self._benchmark)
+        for item in (QLabel("Budget"), self.test_size, self.test_repeats,
+                     self.route_btn, self.benchmark_btn):
+            bench_buttons.addWidget(item)
+        bench_layout.addLayout(bench_buttons)
+        self.benchmark_label = QLabel("Nessun benchmark eseguito. Uscita WAN da verificare.")
+        self.benchmark_label.setWordWrap(True)
+        bench_layout.addWidget(self.benchmark_label)
+        self.benchmark_table = QTableWidget(0, 5)
+        self.benchmark_table.setHorizontalHeaderLabels(
+            ["Banda permessa", "Stato", "Download mediano (Mbps)",
+             "TTFB mediano (ms)", "Prove valide"]
+        )
+        self.benchmark_table.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.Stretch
+        )
+        bench_layout.addWidget(self.benchmark_table)
+        box.addWidget(bench_group, 1)
         self._mask()
         return w
 
@@ -396,7 +436,8 @@ class PocketWindow(QMainWindow):
         self.online = online
         self.connect_btn.setEnabled(not online and self.radio_worker is None)
         self.disconnect_btn.setEnabled(self.radio_worker is not None)
-        for widget in (self.apply_btn, self.restore_btn, self.scan_btn, self.refresh_btn):
+        for widget in (self.apply_btn, self.restore_btn, self.scan_btn,
+                       self.refresh_btn, self.route_btn, self.benchmark_btn):
             widget.setEnabled(online and not self.busy)
         self.cancel_btn.setEnabled(online and self.busy)
         # Never run a measurement scan while the firmware supplies no RF
@@ -706,6 +747,46 @@ class PocketWindow(QMainWindow):
         self._busy(True)
         self.radio_worker.submit("scan", bands=bands)
 
+    def _route_check(self):
+        if not self.online or self.busy or self.radio_worker is None:
+            return
+        self._busy(True)
+        self.benchmark_label.setText("Verifica percorso Internet in corso (nessuna modifica LTE)...")
+        self.radio_worker.submit("route_check")
+
+    def _benchmark(self):
+        if not self.online or self.busy or self.radio_worker is None:
+            return
+        bands = self._selection()
+        if not bands:
+            return
+        repeats = int(self.test_repeats.currentData())
+        size = int(self.test_size.currentData())
+        total_mib = len(bands) * repeats * size / 1048576
+        note = (
+            f"Benchmark di {len(bands)} bande singole: " + ", ".join("B" + str(b) for b in bands)
+            + f".\\nDownload massimo programmato: {total_mib:g} MiB "
+            "(esclusi header/retry).\\n"
+            "Verranno modificate le bande LTE e il servizio mobile potrebbe "
+            "interrompersi anche per diversi minuti. Il ripristino della "
+            "configurazione originale sarà tentato e verificato, "
+            "ma non è garantito se l'API diventa irraggiungibile.\\n"
+            "Se il Dell non usa direttamente il pocket come gateway, "
+            "il benchmark viene bloccato PRIMA di qualsiasi scrittura.\\n"
+            "Confermi?"
+        )
+        if QMessageBox.question(
+            self, "Benchmark con traffico reale", note.replace("\\n", "\n")
+        ) != QMessageBox.StandardButton.Yes:
+            return
+        self.benchmark_results = []
+        self.benchmark_table.setRowCount(0)
+        self.benchmark_label.setText("Benchmark in corso: non scollegare il pocket.")
+        self._busy(True)
+        self.radio_worker.submit(
+            "benchmark", bands=bands, repeats=repeats, bytes_per_sample=size
+        )
+
     def _cancel(self):
         if self.radio_worker:
             self.radio_worker.cancel.set()
@@ -719,11 +800,41 @@ class PocketWindow(QMainWindow):
         if "step" in item and "total" in item:
             details += f" · {item['step']}/{item['total']}"
         self.scan_status.setText(details)
+        if self.busy:
+            self.benchmark_label.setText(details)
 
 
     def _job_done(self, command, ok, message, data):
         self._busy(False)
         self._log(("OK: " if ok else "ERRORE: ") + message)
+        if command == "route_check":
+            self.benchmark_label.setText(message if ok else
+                                         "Bloccato: " + message)
+        if command == "benchmark":
+            self.benchmark_results = data if isinstance(data, list) else []
+            self.benchmark_table.setRowCount(0)
+            for result in self.benchmark_results:
+                idx = self.benchmark_table.rowCount()
+                self.benchmark_table.insertRow(idx)
+                values = (
+                    "B" + str(result.band), result.status,
+                    _show(result.med_mbps), _show(result.med_ttfb_ms),
+                    str(result.completed_samples),
+                )
+                for col, value in enumerate(values):
+                    self.benchmark_table.setItem(idx, col, QTableWidgetItem(value))
+            valid = ranking(self.benchmark_results)
+            if valid:
+                best = valid[0]
+                self.benchmark_label.setText(
+                    f"Download più alto osservato: B{best.band}, "
+                    f"{best.med_mbps:.2f} Mbps (TTFB {best.med_ttfb_ms:.0f} ms). "
+                    "Non è una scelta definitiva: ripetere in orari differenti."
+                )
+            else:
+                self.benchmark_label.setText(
+                    message if ok else "Benchmark interrotto o non verificato: " + message
+                )
         if command == "scan":
             self.scan_results = data if isinstance(data, list) else []
             if any(row.get("status") == "Nessuna misura" for row in self.scan_results):
@@ -748,7 +859,8 @@ class PocketWindow(QMainWindow):
         doc = {"version": __version__, "timestamp": datetime.now().isoformat(),
                "snapshot": safe_json_data(self.snapshot),
                "scan": safe_json_data(self.scan_results),
-               "telemetry": self.timeline.export()}
+               "telemetry": self.timeline.export(),
+               "band_benchmark": [row.safe_dict() for row in self.benchmark_results]}
         try:
             Path(path).write_text(json.dumps(doc, ensure_ascii=False, indent=2), encoding="utf-8")
             self._log("JSON diagnostico esportato con redazione campi sensibili noti")
