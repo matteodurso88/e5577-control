@@ -11,6 +11,18 @@ GUI radio-only per **Huawei E5577Cs-321**. Non sostituisce la Web UI: si concent
 - Target desktop: Linux, Windows, macOS. Verifica OS-specifica da eseguire; nessun PASS implicito.
 - Perimetro v0.1 da completare nella sessione notturna; future estensioni Web UI fuori scope.
 
+## Local gate — three regressions and Qt teardown (2026-10-13)
+
+Dell owner ran the complete 72-test local gate after the graphical dashboard iteration. Evidence: **69 passed, 3 failed**, then Python's Qt test process terminated with **signal 11 / SIGSEGV**. The app GUI otherwise launched; none of the failures concern LTE write semantics.
+
+Corrections on branch `work/pocket-manager-radio-v01`: 
+- The route-success text test now compares case-insensitively (`Puoi procedere` vs `puoi procedere`). The user-facing Italian message stays unchanged.
+- Qt `_set_advanced` navigates to `Stato connessione` **before** hiding an active advanced tab. Previously Qt automatically switched to tab 3 before the final guard checked the selected index.
+- The offscreen test selects `Confronta bande` before asserting `benchmark_btn.isVisible()`: a widget inside an inactive tab is not globally visible despite its tab being available.
+- UI test fixture now uses `WA_DontShowOnScreen`, explicit `deleteLater()` processing and deterministic `QApplication` teardown to address process SIGSEGV after unittest summary. This is a candidate crash fix, **not a verified repair until the owner reruns the Dell gate**.
+- `scripts/local_gate.py` now explicitly reports native process-signal failures and calls out Qt offscreen smoke as part of the suite. It never claims hardware/benchmark acceptance.
+
+Next owner gate: `git pull --ff-only` and `.venv/bin/python scripts/local_gate.py`; only if all 72 pass and the process exits zero, run `.venv/bin/python -m pocket_manager` for a brief basic/advanced toggle smoke. No modem writes or WAN benchmark required.
 ## Dashboard grafica e identificazione banda LTE — iterazione 13 ottobre 2026
 
 La schermata **Stato connessione** offre ora tre riquadri leggibili: **🌐 Rete mobile** (operatore/stato), **📶 Segnale** (tacche e barra Qt, indicatore approssimativo) e **📡 Banda LTE**. Le schede hanno icone native Qt, senza dipendenze da font esterni; le emoji nei titoli sono soltanto elementi decorativi, il testo rimane autonomo.
