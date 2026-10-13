@@ -108,7 +108,7 @@ class RadioWorker(QThread):
                                 data = radio.sms_counts()
                                 message = "Contatore SMS aggiornato"
                             elif command == "mobile_switch":
-                                state = radio.set_mobile_data(bool(opts["enabled"]))
+                                state = radio.set_mobile_data(opts["enabled"])
                                 message = "Dati mobili attivati" if state else "Dati mobili disattivati"
                                 data = {"mobile_data": {"dataswitch": "1" if state else "0"}}
                             elif command == "route_check":
