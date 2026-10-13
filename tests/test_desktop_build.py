@@ -61,10 +61,13 @@ class NativeBuildTests(unittest.TestCase):
 
     def test_frozen_version_flag_does_not_launch_gui(self):
         stream = StringIO()
-        with redirect_stdout(stream), \
-             patch("pocket_manager.qt_app.main") as gui:
+        # --version must never import the Qt GUI at all. Importing it here
+        # would require native graphics libraries on the CI runner.
+        import sys
+        was_imported = "pocket_manager.qt_app" in sys.modules
+        with redirect_stdout(stream):
             self.assertEqual(main(["--version"]), 0)
-            gui.assert_not_called()
+        self.assertEqual("pocket_manager.qt_app" in sys.modules, was_imported)
         self.assertIn(__version__, stream.getvalue())
 
 
