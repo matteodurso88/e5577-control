@@ -8,6 +8,8 @@ import time
 from collections.abc import Callable
 
 from .radio import RadioConfig, mask_hex, numeric_metric, has_radio_measurements
+from .device_features import (mobile_data_state, sms_messages, sms_summary,
+                              UnsupportedFeature)
 
 
 class RadioError(RuntimeError):
@@ -76,11 +78,58 @@ class HuaweiRadioBackend:
             # when exposed by firmware. Unsupported is represented by error,
             # never guessed from total counters.
             result["traffic_statistics"] = self._read(monitoring, "traffic_statistics")
+        dial_up = getattr(self.client, "dial_up", None)
+        if dial_up is not None:
+            result["mobile_data"] = self._read(dial_up, "mobile_dataswitch")
         if full:
             result["mode_list"] = self._read(self.client.net, "net_mode_list")
             result["cell_info"] = self._read(self.client.net, "cell_info")
             result["device_information"] = self._read(self.client.device, "information")
+            result["sms_count"] = self.sms_counts()
         return result
+
+    def sms_counts(self):
+        if self.client is None:
+            return {"__error__": "Pocket non connesso"}
+        group = getattr(self.client, "sms", None)
+        return self._read(group, "sms_count") if group is not None else {"__error__": "SMS non supportati"}
+
+    def sms_inbox(self, *, limit: int = 20):
+        """User-triggered, in-memory SMS read; never included in snapshots."""
+        if self.client is None:
+            raise RadioError("Pocket non connesso")
+        if not 1 <= limit <= 50:
+            raise ValueError("Numero di SMS fuori limite")
+        sms = getattr(self.client, "sms", None)
+        if sms is None or not hasattr(sms, "get_sms_list"):
+            raise UnsupportedFeature("Lettura SMS non supportata dal firmware")
+        return sms_messages(sms.get_sms_list(page=1, read_count=limit))
+
+    def set_mobile_data(self, enabled: bool) -> bool:
+        """Change the WAN mobile-data switch, never Wi-Fi or the GUI session.
+
+        Fail closed if initial state cannot be read. Confirm actual state
+        via dialup/mobile-dataswitch, not ConnectionStatus (which may lag).
+        """
+        if type(enabled) is not bool:
+            raise ValueError("Stato dati mobili non valido")
+        if self.client is None:
+            raise RadioError("Pocket non connesso")
+        group = getattr(self.client, "dial_up", None)
+        if group is None or not hasattr(group, "set_mobile_dataswitch"):
+            raise UnsupportedFeature("Interruttore dati mobili non disponibile")
+        old = mobile_data_state(self._read(group, "mobile_dataswitch"))
+        if old is None:
+            raise RadioError("Stato dati mobili sconosciuto: modifica bloccata")
+        if old == enabled:
+            return old
+        group.set_mobile_dataswitch(dataswitch=1 if enabled else 0)
+        for _ in range(10):
+            time.sleep(1)
+            state = mobile_data_state(self._read(group, "mobile_dataswitch"))
+            if state == enabled:
+                return state
+        raise RadioError("Comando inviato, ma il nuovo stato dati mobili non è confermato")
 
     def config(self) -> RadioConfig:
         if self.client is None:
