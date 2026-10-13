@@ -23,6 +23,24 @@ Corrections on branch `work/pocket-manager-radio-v01`:
 - `scripts/local_gate.py` now explicitly reports native process-signal failures and calls out Qt offscreen smoke as part of the suite. It never claims hardware/benchmark acceptance.
 
 Next owner gate: `git pull --ff-only` and `.venv/bin/python scripts/local_gate.py`; only if all 72 pass and the process exits zero, run `.venv/bin/python -m pocket_manager` for a brief basic/advanced toggle smoke. No modem writes or WAN benchmark required.
+## UX Home cards-only e SMS doppio clic — iterazione 13 ottobre 2026
+
+- La scheda **Stato connessione** è ora **composta esclusivamente da quattro card**: `🌐 Rete mobile` a larghezza piena, seguita da `📶 Segnale`, `📡 Banda LTE` e `✉️ SMS` in riga. Nessun paragrafo, tabella diagnostica o testo di traffico rimane fuori dalle card.
+- La card **Rete mobile** contiene operatore e tecnologia, i valori live `↓ Scaricamento / ↑ Invio` e il pulsante con stato **Attiva/Disattiva dati mobili**. Le operazioni di rete restano inalterate e soggette a conferma e read-back; il valore di traffico è quello riferito dal modem, non uno speed test.
+- I vecchi widget **Dettagli connessione**, **Misure radio** e **Parametro radio / Valore** non sono stati rimossi: si trovano nella scheda avanzata **Dettagli tecnici → Misure radio**; il JSON diagnostico rimane disponibile nella sottoscheda **API ed esportazione**.
+- Nella scheda **Messaggi**, un clic seleziona l'SMS e mostra l'anteprima; **doppio clic sulla riga** apre una finestra di lettura completa (mittente, data, testo scorrevole, pulsante Chiudi). Il corpo è sempre `QPlainTextEdit.setPlainText`, i dati non sono renderizzati come HTML e non vengono scritti nei log/JSON. La finestra SMS aperta viene chiusa quando il dispositivo si scollega.
+- I messaggi restano in sola lettura: nessun invio, eliminazione, cambio dello stato letto/non letto, backup o memorizzazione automatica.
+
+Gate locale aggiornato: **92 test attesi**, compresi smoke Qt che verificano Home composta solo da card, trasferimento e interruttore dentro la card Rete mobile, dialog SMS al doppio clic, contenuti in testo puro, pulizia allo scollegamento e disponibilità dei dati tecnici. Non ancora eseguito sul Dell sul commit più recente.
+
+```bash
+cd ~/progetti/workshop/pocket-manager
+git pull --ff-only
+.venv/bin/python scripts/local_gate.py
+.venv/bin/python -m pocket_manager
+```
+
+Verifica manuale: Home senza testi sparsi; dati di traffico e switch dentro Rete mobile; `Messaggi` mostra anteprima con singolo clic e apre finestra completa al doppio clic; `Mostra strumenti avanzati` consente ancora accesso a misure radio e JSON.
 ## Estensione v0.1 — SMS e interruttore dati mobili (13 ottobre 2026)
 
 ### SMS in Home e lettura dedicata
