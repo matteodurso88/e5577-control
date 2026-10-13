@@ -10,7 +10,8 @@ from unittest.mock import patch, Mock
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
 from PySide6.QtCore import QCoreApplication, QEvent, Qt
-from PySide6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtWidgets import (QApplication, QMessageBox, QFrame,
+                              QGroupBox, QTableWidget, QPlainTextEdit)
 from shiboken6 import delete as delete_qt_object
 
 from pocket_manager.qt_app import PocketWindow
@@ -128,13 +129,76 @@ class BasicAdvancedViewTests(unittest.TestCase):
     def test_advanced_view_still_contains_unabridged_network_fields(self):
         self.window.advanced_toggle.setChecked(True)
         self.app.processEvents()
+        # Detailed RF network information moved off Home into tab 5.
+        self.window.tabs.setCurrentIndex(5)
+        self.app.processEvents()
         self.assertTrue(self.window.advanced_network_group.isVisible())
+        self.assertTrue(self.window.advanced_signal_group.isVisible())
+        self.assertTrue(self.window.signals.isVisible())
         self.assertIn("connection", self.window.network_labels)
         self.assertIn("rf", self.window.network_labels)
         self.window.advanced_toggle.setChecked(False)
         self.app.processEvents()
         self.assertFalse(self.window.advanced_network_group.isVisible())
+        self.assertEqual(self.window.tabs.currentIndex(), 0)
         self.assertTrue(self.window.band_value.isVisible())
+
+    def test_home_contains_cards_only_and_mobile_controls_inside_network_card(self):
+        home = self.window.tabs.widget(0)
+        # All text in Home belongs to the cards (no loose diagnostic tables
+        # or paragraphs below them). Detailed RF is in advanced tab 5.
+        self.assertEqual(home.findChildren(QGroupBox), [])
+        self.assertEqual(home.findChildren(QTableWidget), [])
+        network_frame = self.window.traffic_label.parentWidget()
+        self.assertIsInstance(network_frame, QFrame)
+        self.assertEqual(network_frame.objectName(), "summaryCard")
+        self.assertIs(self.window.data_toggle.parentWidget(), network_frame)
+        self.assertIs(self.window.data_state.parentWidget(), network_frame)
+        for field in (self.window.band_value, self.window.signal_value,
+                      self.window.sms_value):
+            self.assertEqual(field.parentWidget().objectName(), "summaryCard")
+        self.window._reading({
+            "monitoring_status": {"ConnectionStatus": "901",
+                                  "CurrentNetworkType": "19"},
+            "plmn": {"FullName": "WINDTRE", "Rat": "7"},
+            "traffic_statistics": {"CurrentDownloadRate": "2048",
+                                   "CurrentUploadRate": "1024"},
+            "mobile_data": {"dataswitch": "1"},
+        })
+        self.assertIn("2.0 KiB/s", self.window.traffic_label.text())
+        self.assertIn("1.0 KiB/s", self.window.traffic_label.text())
+
+    def test_sms_double_click_opens_full_plain_text_message_dialog(self):
+        from pocket_manager.device_features import SmsMessage
+
+        body = "<script>non eseguire</script>\nSeconda riga di testo SMS."
+        self.window._show_sms([
+            SmsMessage("12", "<b>Mittente</b>", "2026-10-13 11:44",
+                       body, False)
+        ])
+        reader = self.window._create_sms_reader(0)
+        self.assertIsNotNone(reader)
+        self.assertEqual(reader.windowTitle(), "Leggi SMS")
+        editor = reader.findChild(QPlainTextEdit, "smsReaderBody")
+        self.assertTrue(editor.isReadOnly())
+        self.assertEqual(editor.toPlainText(), body)
+        header = reader.findChild(type(self.window.status), "smsReaderHeader")
+        self.assertEqual(header.textFormat(), Qt.TextFormat.PlainText)
+        self.assertIn("<b>Mittente</b>", header.text())
+        reader.close()
+        reader.deleteLater()
+        self.assertIsNone(self.window._create_sms_reader(25))
+
+        # Confirm that Qt's actual double-click signal opens the reader,
+        # without showing a blocking modal during headless tests.
+        fake_dialog = Mock()
+        with patch.object(self.window, "_create_sms_reader",
+                          return_value=fake_dialog) as creator:
+            self.window.sms_table.cellDoubleClicked.emit(0, 1)
+            creator.assert_called_once_with(0)
+            fake_dialog.exec.assert_called_once()
+        self.assertNotIn("Seconda riga", self.window.raw.toPlainText())
+        self.assertNotIn("Seconda riga", self.window.log.toPlainText())
 
     def test_sms_home_tile_and_inbox_are_plain_text(self):
         from pocket_manager.device_features import SmsMessage
