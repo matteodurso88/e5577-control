@@ -70,8 +70,12 @@ class HuaweiRadioBackend:
         if full:
             result["mode_list"] = self._read(self.client.net, "net_mode_list")
             result["cell_info"] = self._read(self.client.net, "cell_info")
-            # Distinguish login success from modem registration/connection.
-            result["monitoring_status"] = self._read(self.client.monitoring, "status")
+            # These firmware endpoints are optional. Keep auth success
+            # distinct from evidence of a registered/connected LTE modem.
+            monitoring = getattr(self.client, "monitoring", None)
+            if monitoring is not None:
+                result["monitoring_status"] = self._read(monitoring, "status")
+            result["device_information"] = self._read(self.client.device, "information")
         return result
 
     def config(self) -> RadioConfig:
