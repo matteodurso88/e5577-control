@@ -80,6 +80,10 @@ class BasicAdvancedViewTests(unittest.TestCase):
         self.assertTrue(self.window.tabs.isTabVisible(3))
         self.assertTrue(self.window.tabs.isTabVisible(5))
         self.assertTrue(self.window.host.isVisible())
+        # The RF table is inside Dettagli tecnici, not on the dashboard:
+        # even an enabled widget is not globally visible on an inactive tab.
+        self.window.tabs.setCurrentIndex(5)
+        self.app.processEvents()
         self.assertTrue(self.window.signals.isVisible())
         self.assertTrue(self.window.log.isVisible())
         self.assertTrue(self.window.apply_btn.isEnabled() is False)
