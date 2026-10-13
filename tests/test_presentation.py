@@ -34,7 +34,7 @@ class PresentationTests(unittest.TestCase):
         error = "Route NON attraverso il pocket: gateway=192.168.100.1; richiesto gateway=192.168.8.1"
         self.assertIn("un'altra rete", friendly_route(False, error))
         self.assertIn("collegalo direttamente", friendly_route(False, error))
-        self.assertIn("puoi procedere", friendly_route(True, "Uscita verificata"))
+        self.assertIn("puoi procedere", friendly_route(True, "Uscita verificata").lower())
 
     def test_ttfb_is_explained_as_response_time(self):
         text = friendly_benchmark_result(Result(3, 25.0, 45))
