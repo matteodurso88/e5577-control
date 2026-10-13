@@ -814,6 +814,35 @@ class PocketWindow(QMainWindow):
                 label.setText(friendly_rf(overview[key]))
             else:
                 label.setText(overview[key])
+
+        # User-facing cards are updated on every authenticated poll.
+        self.network_value.setText(overview["network"])
+        self.network_hint.setText(
+            overview["operator"] + " · " + friendly_connection(overview["connection"])
+        )
+        self.signal_value.setText(friendly_signal(overview["bars"]))
+        self.signal_hint.setText("Livello indicativo del pocket, non velocità Internet")
+        status = self.snapshot.get("monitoring_status", {})
+        try:
+            count = int(status.get("SignalIcon")) if isinstance(status, dict) else -1
+            maximum = int(status.get("maxsignal")) if isinstance(status, dict) else 0
+            if 0 <= count <= maximum <= 10 and maximum > 0:
+                self.signal_gauge.setRange(0, maximum)
+                self.signal_gauge.setValue(count)
+            else:
+                self.signal_gauge.setValue(-1)
+        except (ValueError, TypeError):
+            self.signal_gauge.setValue(-1)
+        band = band_indicator(
+            self.snapshot.get("net_mode"),
+            self.snapshot.get("monitoring_status"),
+            self.snapshot.get("plmn"),
+            signal,
+            self.available or FALLBACK_BANDS,
+        )
+        self.band_value.setText(band.label)
+        self.band_hint.setText(band.detail)
+        self.band_value.setToolTip(band.detail)
         down, up = traffic_rates(self.snapshot.get("traffic_statistics"))
         self.traffic_label.setText(
             f"Trasferimento in questo momento:  Scaricamento ↓ {format_rate(down)}  "
