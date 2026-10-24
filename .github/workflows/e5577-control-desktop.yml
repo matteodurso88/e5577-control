@@ -86,7 +86,11 @@ jobs:
 
   release-v1:
     name: Publish verified v1.0.0 assets
-    if: github.event_name == 'push' && github.ref == 'refs/tags/v1.0.0'
+    if: >-
+      github.event_name == 'push' &&
+      (github.ref == 'refs/tags/v1.0.0' ||
+       (github.ref == 'refs/heads/main' &&
+        startsWith(github.event.head_commit.message, 'release: E5577 Control v1.0.0')))
     needs: package
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -99,16 +103,26 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      - name: Verify immutable annotated tag and version
+      - name: Create or verify annotated tag on the exact approved commit
         env:
+          GH_TOKEN: ${{ github.token }}
           TAG: v1.0.0
         run: |
           set -euo pipefail
-          test "$(git cat-file -t "refs/tags/$TAG")" = tag
-          test "$(git rev-parse "$TAG^{commit}")" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           grep -Fqx 'version = "1.0.0"' pyproject.toml
           test -s docs/en/RELEASE_NOTES_v1.0.0.md
           test -s docs/it/RELEASE_NOTES_v1.0.0.md
+
+          if [ "$GITHUB_REF" = "refs/heads/main" ] &&              ! git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            # One-time release approval is the exact merge commit title.
+            tag_sha="$(gh api -X POST "repos/$GITHUB_REPOSITORY/git/tags"               -f tag="$TAG" -f message="E5577 Control v1.0.0"               -f object="$GITHUB_SHA" -f type=commit --jq '.sha')"
+            gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs"               -f ref="refs/tags/$TAG" -f sha="$tag_sha" >/dev/null
+          fi
+
+          git fetch --no-tags origin "refs/tags/$TAG:refs/tags/$TAG"
+          test "$(git cat-file -t "refs/tags/$TAG")" = tag
+          test "$(git rev-parse "$TAG^{commit}")" = "$GITHUB_SHA"
 
       - name: Download both freshly generated native build artifacts
         uses: actions/download-artifact@v4
