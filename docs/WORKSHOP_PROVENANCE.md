@@ -41,15 +41,16 @@ The WORKSHOP source repository remains intact as the historical origin and refer
 
 The history of this workflow itself remains in WORKSHOP, including commits `97fdd41`, `ea4f095`, `2eba92b`; these cannot be represented as original subtree commits because they modified files outside `pocket-manager/`. The workflow has been ported to the Product repository root separately, with its WORKSHOP provenance noted here.
 
-## Release policy / status
+## Product publication and source retirement
 
-- Source version at import: `0.1.0` (formerly *Pocket Radio Manager*).
-- **The Product has NOT yet published a native E5577 Control release.**
-- Existing source code, desktop binary names, packaging IDs, and historic documentation may still use *Pocket Radio Manager* pending the controlled rebrand and fresh platform packaging QA.
-- WORKSHOP release assets are historical and remain available to people authorized to view that private source repository; they are **not silently republished or relabeled** as Product builds.
-- Product CI builds Linux/Windows candidate artifacts on PR/main. A Product GitHub Release requires a **separate, explicit publication gate**, after branding, test verification, package integrity, and owner acceptance.
-- Never overwrite or retag the immutable historical WORKSHOP release.
+- Imported historical version: `0.1.0` (*Pocket Radio Manager*). Version `1.0.0` is the separate standalone **E5577 Control** Product milestone.
+- The Product identity, executable, Linux desktop package and Windows installer are now branded **E5577 Control**, with the canonical complete `matt88.it` SVG wordmark in the compact GUI footer.
+- Legacy local profile storage and keyring service identifiers were **deliberately retained** to protect existing saved device credentials.
+- The original WORKSHOP `pocket-manager/` subtree and obsolete workflow were removed from the **current main tree** in [WORKSHOP PR #22](https://github.com/matteodurso88/workshop/pull/22), merged at `5307294af6df83d2d538289da922196acb40f30c`. They remain retrievable from WORKSHOP Git history, without any history rewrite, tag or release deletion.
+- The original WORKSHOP release assets are accessible to authorized viewers of the private source repository; they are **not republished or relabeled** as Product binaries.
+- Standalone CI builds native Linux/Windows packages. A new `v1.0.0` **annotated Git tag** starts fresh two-platform builds and gated publication of four packages with `SHA256SUMS.txt`. A release must not overwrite an existing publication.
+- Release truth is the [Product Releases page](https://github.com/matteodurso88/e5577-control/releases), not a claim in a historical document. See [English](en/RELEASE.md) and [Italiano](it/RELEASE.md) runbooks.
 
 ## Completion tracking
 
-See [Product migration Issue #1](https://github.com/matteodurso88/e5577-control/issues/1) for current migration gates. Do not remove source subtree or retire WORKSHOP references until the Product migration and verification have completed.
+See [Product migration Issue #1](https://github.com/matteodurso88/e5577-control/issues/1) for the verified migration and outstanding release gates. WORKSHOP retains its immutable history and original GitHub objects.
