@@ -11,15 +11,16 @@ import sys
 import threading
 import time
 
-from PySide6.QtCore import QThread, Signal, Qt
-from PySide6.QtGui import QIcon
+from PySide6.QtCore import QEvent, QSize, QThread, QUrl, Signal, Qt
+from PySide6.QtGui import QDesktopServices, QIcon, QPainter, QPalette, QPixmap
+from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QFileDialog, QGridLayout,
     QGroupBox, QHBoxLayout, QHeaderView, QInputDialog, QLabel, QLineEdit,
     QFrame, QProgressBar, QStyle,
     QDialog, QDialogButtonBox, QPlainTextEdit,
     QMainWindow, QMessageBox, QPushButton, QAbstractItemView, QTableWidget,
-    QTableWidgetItem, QTabWidget, QTextEdit, QVBoxLayout, QWidget,
+    QTableWidgetItem, QTabWidget, QTextEdit, QToolButton, QVBoxLayout, QWidget,
 )
 
 from . import __version__
@@ -200,15 +201,16 @@ class PocketWindow(QMainWindow):
         self.sms_reader_dialog = None
         self.sms_page = 1
         self.mobile_enabled = None
-        self.setWindowTitle("Pocket Radio Manager · " + __version__)
+        self.setWindowTitle("E5577 Control · v" + __version__)
         resource_root = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[1]))
         for icon_asset in (
-            resource_root / "pocket-radio-manager.png",
-            resource_root / "assets" / "pocket-radio-manager-icon.svg",
+            resource_root / "e5577-control.png",
+            resource_root / "assets" / "e5577-control-icon.svg",
         ):
             if icon_asset.is_file():
                 self.setWindowIcon(QIcon(str(icon_asset)))
                 break
+        self._brand_dir = resource_root / "assets" / "matt88"
         self.resize(1180, 780)
         self._build()
         self._set_advanced(False)
@@ -274,6 +276,10 @@ class PocketWindow(QMainWindow):
         self.advanced_toggle.toggled.connect(self._set_advanced)
         header.addWidget(self.status, 1)
         header.addWidget(self.advanced_toggle)
+        about_button = QPushButton("Informazioni")
+        about_button.setObjectName("aboutButton")
+        about_button.clicked.connect(self._show_about)
+        header.addWidget(about_button)
         outer.addLayout(header)
 
         self.tabs = QTabWidget()
@@ -297,6 +303,37 @@ class PocketWindow(QMainWindow):
         self.log.setReadOnly(True)
         self.log.setMaximumHeight(105)
         outer.addWidget(self.log)
+
+        # Compact, non-growing footer. Preserve the 22px row height.
+        footer_row = QWidget()
+        footer_row.setObjectName("productFooterRow")
+        footer_row.setFixedHeight(22)
+        footer_layout = QHBoxLayout(footer_row)
+        footer_layout.setContentsMargins(0, 0, 0, 0)
+        footer_layout.setSpacing(8)
+
+        self.product_footer = QLabel(f"E5577 Control · v{__version__}")
+        self.product_footer.setObjectName("productFooter")
+        self.product_footer.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        footer_layout.addWidget(self.product_footer, 1)
+
+        self.product_footer_logo = QToolButton()
+        self.product_footer_logo.setObjectName("productFooterLogo")
+        self.product_footer_logo.setAutoRaise(True)
+        self.product_footer_logo.setFixedSize(76, 20)
+        self.product_footer_logo.setIconSize(QSize(71, 18))
+        self.product_footer_logo.setToolTip("Apri matt88.it")
+        self.product_footer_logo.setAccessibleName("matt88.it — sito ufficiale")
+        self.product_footer_logo.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.product_footer_logo.setStyleSheet(
+            "QToolButton { border: none; padding: 0; background: transparent; }"
+        )
+        self.product_footer_logo.clicked.connect(
+            lambda: QDesktopServices.openUrl(QUrl("https://matt88.it"))
+        )
+        footer_layout.addWidget(self.product_footer_logo, 0, Qt.AlignmentFlag.AlignVCenter)
+        outer.addWidget(footer_row)
+        self._refresh_footer_logo()
         self.setStyleSheet(
             "QWidget {font-size: 13px;} QPushButton {padding: 6px 10px;}"
             "QGroupBox {font-weight: bold; margin-top: 10px; padding-top: 9px;}"
@@ -309,6 +346,63 @@ class PocketWindow(QMainWindow):
             "background: palette(base);}"
             "QProgressBar::chunk {background: #4795c7; border-radius: 4px;}"
         )
+
+    def _refresh_footer_logo(self):
+        """Render the canonical wordmark for the actual Qt light/dark palette."""
+        if not hasattr(self, "product_footer_logo"):
+            return
+        dark_surface = self.palette().color(QPalette.ColorRole.Window).lightness() < 128
+        name = "logo-dark.svg" if dark_surface else "logo-light.svg"
+        svg_path = self._brand_dir / name
+        renderer = QSvgRenderer(str(svg_path))
+        if not renderer.isValid():
+            raise RuntimeError(f"Invalid or missing canonical matt88.it SVG: {svg_path}")
+
+        # Render at 2x for sharp, proportional text even on HiDPI screens.
+        width, height, scale = 71, 18, 2
+        pixmap = QPixmap(width * scale, height * scale)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(pixmap)
+        try:
+            renderer.render(painter)
+        finally:
+            painter.end()
+        pixmap.setDevicePixelRatio(scale)
+        self.product_footer_logo.setIcon(QIcon(pixmap))
+
+    def changeEvent(self, event):
+        super().changeEvent(event)
+        if event.type() in (QEvent.Type.PaletteChange, QEvent.Type.ApplicationPaletteChange):
+            self._refresh_footer_logo()
+
+    def _about_dialog(self) -> QDialog:
+        """Build a self-contained, read-only product/credits dialog."""
+        dialog = QDialog(self)
+        dialog.setObjectName("aboutDialog")
+        dialog.setWindowTitle("Informazioni su E5577 Control")
+        dialog.setMinimumWidth(390)
+        layout = QVBoxLayout(dialog)
+        title = QLabel("E5577 Control")
+        title.setObjectName("aboutProductName")
+        title.setStyleSheet("font-size: 20px; font-weight: bold;")
+        version = QLabel(f"Versione {__version__}")
+        version.setObjectName("aboutVersion")
+        description = QLabel("Gestione e diagnostica del modem Huawei E5577Cs-321.")
+        description.setWordWrap(True)
+        credits = QLabel('<a href="https://matt88.it">Sviluppato da matt88.it</a>')
+        credits.setObjectName("aboutCredits")
+        credits.setTextFormat(Qt.TextFormat.RichText)
+        credits.setOpenExternalLinks(True)
+        credits.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
+        for widget in (title, version, description, credits):
+            layout.addWidget(widget)
+        close = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        close.rejected.connect(dialog.reject)
+        layout.addWidget(close)
+        return dialog
+
+    def _show_about(self):
+        self._about_dialog().exec()
 
     def _set_advanced(self, enabled: bool):
         """Only change visibility: technical widgets and their state remain intact."""
@@ -1444,7 +1538,7 @@ class PocketWindow(QMainWindow):
 
 def main() -> int:
     app = QApplication(sys.argv)
-    app.setApplicationName("Pocket Radio Manager")
+    app.setApplicationName("E5577 Control")
     window = PocketWindow()
     window.show()
     return app.exec()

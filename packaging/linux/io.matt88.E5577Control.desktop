@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=E5577 Control
+GenericName=Huawei E5577 LTE device manager
+Comment=Controllo, monitoraggio LTE e messaggi SMS per Huawei E5577
+Exec=/opt/e5577-control/E5577Control
+Icon=e5577-control
+Terminal=false
+Categories=Network;Utility;
+StartupNotify=true
+StartupWMClass=E5577Control
+Keywords=LTE;Huawei;E5577;SMS;modem;pocket;

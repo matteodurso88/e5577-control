@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
-  <title id="title">Pocket Radio Manager</title>
-  <desc id="desc">A white pocket modem beneath a cyan radio antenna on a dark blue square.</desc>
+  <title id="title">E5577 Control</title>
+  <desc id="desc">A white Huawei E5577-style pocket modem beneath a cyan radio antenna on a dark blue square.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#172A45"/>

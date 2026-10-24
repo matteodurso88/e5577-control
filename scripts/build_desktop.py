@@ -22,7 +22,7 @@ import zipfile
 from pocket_manager import __version__
 
 ROOT = Path(__file__).resolve().parents[1]
-APP_NAME = "PocketRadioManager"
+APP_NAME = "E5577Control"
 BUNDLE_PARENT = ROOT / "dist" / "bundles"
 OUTPUT_DIR = ROOT / "dist" / "packages"
 WORK_DIR = ROOT / "build" / "pyinstaller"
@@ -68,7 +68,7 @@ def build_deb(bundle: Path, png: Path) -> Path:
     stage = ROOT / "build" / "deb-root"
     if stage.exists():
         shutil.rmtree(stage)
-    app_dir = stage / "opt" / "pocket-radio-manager"
+    app_dir = stage / "opt" / "e5577-control"
     app_dir.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(bundle, app_dir, symlinks=False)
     executable = app_dir / APP_NAME
@@ -76,14 +76,14 @@ def build_deb(bundle: Path, png: Path) -> Path:
         raise RuntimeError("Binary mancante dal pacchetto Debian")
     executable.chmod(0o755)
 
-    desktop_src = ROOT / "packaging" / "linux" / "io.matt88.PocketRadioManager.desktop"
+    desktop_src = ROOT / "packaging" / "linux" / "io.matt88.E5577Control.desktop"
     desktop_dest = stage / "usr" / "share" / "applications" / desktop_src.name
     desktop_dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(desktop_src, desktop_dest)
     desktop_dest.chmod(0o644)
 
     icon_dest = (stage / "usr" / "share" / "icons" / "hicolor"
-                 / "256x256" / "apps" / "pocket-radio-manager.png")
+                 / "256x256" / "apps" / "e5577-control.png")
     icon_dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(png, icon_dest)
     icon_dest.chmod(0o644)
@@ -91,18 +91,18 @@ def build_deb(bundle: Path, png: Path) -> Path:
     control_dir = stage / "DEBIAN"
     control_dir.mkdir()
     (control_dir / "control").write_text(
-        "Package: pocket-radio-manager\n"
+        "Package: e5577-control\n"
         f"Version: {__version__}\n"
         "Section: net\n"
         "Priority: optional\n"
         "Architecture: amd64\n"
         "Maintainer: matteodurso88\n"
         "Depends: libc6, libstdc++6, libegl1, libgl1, libxcb-cursor0, libxkbcommon-x11-0\n"
-        "Description: Pocket Radio Manager LTE desktop application\n"
+        "Description: E5577 Control LTE desktop application\n"
         " Monitor Huawei pocket LTE connection, mobile data and read SMS.\n",
         encoding="utf-8",
     )
-    archive = OUTPUT_DIR / f"pocket-radio-manager-v{__version__}-linux-x86_64.deb"
+    archive = OUTPUT_DIR / f"e5577-control-v{__version__}-linux-x86_64.deb"
     subprocess.run(["dpkg-deb", "--build", "--root-owner-group",
                     str(stage), str(archive)], check=True, cwd=ROOT)
     subprocess.run(["dpkg-deb", "--field", str(archive), "Package"],
@@ -131,9 +131,9 @@ def build_windows_installer(bundle: Path, ico: Path) -> Path:
     if os.name != "nt":
         raise ValueError("Windows installer requires Windows")
     compiler = find_inno_compiler()
-    script = ROOT / "packaging" / "windows" / "PocketRadioManager.iss"
+    script = ROOT / "packaging" / "windows" / "E5577Control.iss"
     expected = OUTPUT_DIR / (
-        f"pocket-radio-manager-v{__version__}-windows-x86_64-setup.exe"
+        f"e5577-control-v{__version__}-windows-x86_64-setup.exe"
     )
     command = [
         str(compiler),
@@ -190,6 +190,7 @@ def run() -> int:
         "--workpath", str(WORK_DIR / "work"),
         "--specpath", str(WORK_DIR / "spec"),
         "--add-data", str(png) + os.pathsep + ".",
+        "--add-data", str(ROOT / "assets" / "matt88") + os.pathsep + "assets/matt88",
         "--collect-submodules", "huawei_lte_api",
         "--collect-submodules", "keyring.backends",
         "--collect-submodules", "platformdirs",
@@ -211,7 +212,7 @@ def run() -> int:
         subprocess.run([str(executable), flag], cwd=ROOT, check=True, timeout=75)
 
     metadata = {
-        "name": "Pocket Radio Manager",
+        "name": "E5577 Control",
         "version": __version__,
         "platform": platform_name,
         "architecture": platform.machine(),
@@ -219,13 +220,13 @@ def run() -> int:
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "dependencies": dependency_versions(),
         "format": "portable plus OS-native installer; unsigned",
-        "icon": "pocket-radio-manager-icon.svg (native vector source)",
+        "icon": "assets/e5577-control-icon.svg (native vector source)",
     }
     (bundle / "BUILD-MANIFEST.json").write_text(
         json.dumps(metadata, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
     (bundle / "README-FIRST.txt").write_text(
-        f"Pocket Radio Manager v{__version__}\n"
+        f"E5577 Control v{__version__}\n"
         "Run the executable from the extracted folder. The installers register "
         "the application in Linux's application menu or the Windows Start Menu.\n"
         "No saved profiles, credentials or SMS are bundled.\n"
@@ -234,7 +235,7 @@ def run() -> int:
     )
 
     portable = OUTPUT_DIR / (
-        f"pocket-radio-manager-v{__version__}-{platform_name}{extension}"
+        f"e5577-control-v{__version__}-{platform_name}{extension}"
     )
     if portable.exists():
         portable.unlink()

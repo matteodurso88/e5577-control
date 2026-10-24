@@ -1,4 +1,4 @@
-"""PyInstaller-friendly entrypoint for Pocket Radio Manager desktop bundles.
+"""PyInstaller-friendly entrypoint for E5577 Control desktop bundles.
 
 --version and --self-check run without Qt GUI initialization, radio access,
 network traffic, saved profiles, or credentials. The normal path starts Qt.
@@ -7,13 +7,14 @@ network traffic, saved profiles, or credentials. The normal path starts Qt.
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 import sys
 
 from pocket_manager import __version__
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="PocketRadioManager")
+    parser = argparse.ArgumentParser(prog="E5577Control")
     parser.add_argument("--version", action="store_true", help="Show application version")
     parser.add_argument(
         "--self-check", action="store_true",
@@ -22,7 +23,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.version:
         if sys.stdout is not None:
-            print(f"Pocket Radio Manager {__version__}")
+            print(f"E5577 Control {__version__}")
         return 0
 
     if args.self_check:
@@ -43,8 +44,14 @@ def main(argv: list[str] | None = None) -> int:
             import keyring.backends.SecretService  # noqa: F401
         elif sys.platform == "win32":
             import keyring.backends.Windows  # noqa: F401
+        asset_root = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[1]))
+        for variant in ("logo-dark.svg", "logo-light.svg"):
+            path = asset_root / "assets" / "matt88" / variant
+            if not path.is_file():
+                raise RuntimeError(f"Missing canonical matt88.it branding asset: {variant}")
+
         if sys.stdout is not None:
-            print(f"PASS: Pocket Radio Manager {__version__} runtime imports")
+            print(f"PASS: E5577 Control {__version__} runtime imports")
         return 0
 
     # Preserve exactly one QApplication instance, managed by the Qt entrypoint.

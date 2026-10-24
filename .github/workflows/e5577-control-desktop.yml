@@ -3,6 +3,7 @@ name: E5577 Control | Linux + Windows desktop packages
 on:
   push:
     branches: [main]
+    tags: [v1.0.0]
   pull_request:
   workflow_dispatch:
 
@@ -82,3 +83,77 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+
+  release-v1:
+    name: Publish verified v1.0.0 assets
+    if: >-
+      github.event_name == 'push' &&
+      (github.ref == 'refs/tags/v1.0.0' ||
+       (github.ref == 'refs/heads/main' &&
+        startsWith(github.event.head_commit.message, 'release: E5577 Control v1.0.0')))
+    needs: package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout exact tagged source with annotated tag history
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Create or verify annotated tag on the exact approved commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: v1.0.0
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          grep -Fqx 'version = "1.0.0"' pyproject.toml
+          test -s docs/en/RELEASE_NOTES_v1.0.0.md
+          test -s docs/it/RELEASE_NOTES_v1.0.0.md
+
+          if [ "$GITHUB_REF" = "refs/heads/main" ] &&              ! git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            # One-time release approval is the exact merge commit title.
+            tag_sha="$(gh api -X POST "repos/$GITHUB_REPOSITORY/git/tags"               -f tag="$TAG" -f message="E5577 Control v1.0.0"               -f object="$GITHUB_SHA" -f type=commit --jq '.sha')"
+            gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs"               -f ref="refs/tags/$TAG" -f sha="$tag_sha" >/dev/null
+          fi
+
+          git fetch --no-tags origin "refs/tags/$TAG:refs/tags/$TAG"
+          test "$(git cat-file -t "refs/tags/$TAG")" = tag
+          test "$(git rev-parse "$TAG^{commit}")" = "$GITHUB_SHA"
+
+      - name: Download both freshly generated native build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: e5577-control-*
+          path: downloaded-artifacts
+
+      - name: Assemble exact four packages and one SHA-256 manifest
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          for filename in             e5577-control-v1.0.0-linux-x86_64.deb             e5577-control-v1.0.0-linux-x86_64.tar.gz             e5577-control-v1.0.0-windows-x86_64-setup.exe             e5577-control-v1.0.0-windows-x86_64.zip; do
+            mapfile -t matches < <(find downloaded-artifacts -type f -name "$filename")
+            test "${#matches[@]}" -eq 1
+            test -s "${matches[0]}"
+            cp -- "${matches[0]}" "release-assets/$filename"
+          done
+          test "$(find release-assets -maxdepth 1 -type f | wc -l)" -eq 4
+          (cd release-assets && sha256sum e5577-control-v1.0.0-* > SHA256SUMS.txt)
+          (cd release-assets && sha256sum --check SHA256SUMS.txt)
+          test "$(wc -l < release-assets/SHA256SUMS.txt)" -eq 4
+          cat release-assets/SHA256SUMS.txt
+
+      - name: Publish GitHub Release without replacing historical assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: v1.0.0
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "A release for $TAG already exists; refusing to replace it."
+            exit 1
+          fi
+          gh release create "$TAG" release-assets/*             --repo "$GITHUB_REPOSITORY"             --verify-tag             --title "E5577 Control v1.0.0"             --notes-file docs/en/RELEASE_NOTES_v1.0.0.md             --latest

@@ -1,7 +1,7 @@
 """Render deterministic SVG branding into desktop icons (offline only).
 
 Linux desktop launchers use 256px PNG; Windows uses a multi-size .ico.
-The canonical asset is assets/pocket-radio-manager-icon.svg.
+The canonical asset is assets/e5577-control-icon.svg.
 """
 
 from pathlib import Path
@@ -10,7 +10,7 @@ from PySide6.QtSvg import QSvgRenderer
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "assets" / "pocket-radio-manager-icon.svg"
+SOURCE = ROOT / "assets" / "e5577-control-icon.svg"
 TARGET = ROOT / "build" / "icons"
 
 
@@ -19,8 +19,8 @@ def generate() -> tuple[Path, Path]:
     renderer = QSvgRenderer(str(SOURCE))
     if not renderer.isValid():
         raise RuntimeError("L'icona SVG canonica non è valida")
-    png = TARGET / "pocket-radio-manager.png"
-    ico = TARGET / "pocket-radio-manager.ico"
+    png = TARGET / "e5577-control.png"
+    ico = TARGET / "e5577-control.ico"
     picture = QImage(256, 256, QImage.Format.Format_ARGB32)
     picture.fill(0)
     painter = QPainter(picture)

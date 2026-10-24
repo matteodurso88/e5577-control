@@ -1,7 +1,7 @@
-; Pocket Radio Manager per-user Inno Setup installer.
+; E5577 Control per-user Inno Setup installer.
 ; Command:
 ; ISCC.exe /DSourceDir="<frozen onedir>" /DOutputDir="<dist/packages>"
-;          /DIconFile="<build/icons/*.ico>" /DAppVersion="0.1.0" thisfile.iss
+;          /DIconFile="<build/icons/*.ico>" /DAppVersion="1.0.0" thisfile.iss
 
 #ifndef AppVersion
   #error "AppVersion is required"
@@ -16,23 +16,23 @@
   #error "IconFile is required"
 #endif
 
-#define AppName "Pocket Radio Manager"
-#define AppExe "PocketRadioManager.exe"
+#define AppName "E5577 Control"
+#define AppExe "E5577Control.exe"
 
 [Setup]
 AppId={{0B736E83-EA41-4E4D-8BC3-54654FE7E937}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppVerName={#AppName} {#AppVersion}
-AppPublisher=matteodurso88
-AppPublisherURL=https://github.com/matteodurso88/workshop
-AppSupportURL=https://github.com/matteodurso88/workshop/issues
-AppUpdatesURL=https://github.com/matteodurso88/workshop/releases
-DefaultDirName={localappdata}\Programs\Pocket Radio Manager
-DefaultGroupName=Pocket Radio Manager
+AppPublisher=matt88.it
+AppPublisherURL=https://matt88.it
+AppSupportURL=https://github.com/matteodurso88/e5577-control/issues
+AppUpdatesURL=https://github.com/matteodurso88/e5577-control/releases
+DefaultDirName={localappdata}\Programs\E5577 Control
+DefaultGroupName=E5577 Control
 DisableProgramGroupPage=yes
 OutputDir={#OutputDir}
-OutputBaseFilename=pocket-radio-manager-v{#AppVersion}-windows-x86_64-setup
+OutputBaseFilename=e5577-control-v{#AppVersion}-windows-x86_64-setup
 SetupIconFile={#IconFile}
 UninstallDisplayIcon={app}\{#AppExe}
 Compression=lzma2
@@ -56,8 +56,8 @@ Name: "desktopicon"; Description: "Crea un collegamento sul desktop"; GroupDescr
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\Pocket Radio Manager"; Filename: "{app}\{#AppExe}"; WorkingDir: "{app}"
-Name: "{autodesktop}\Pocket Radio Manager"; Filename: "{app}\{#AppExe}"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{autoprograms}\E5577 Control"; Filename: "{app}\{#AppExe}"; WorkingDir: "{app}"
+Name: "{autodesktop}\E5577 Control"; Filename: "{app}\{#AppExe}"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\{#AppExe}"; Description: "Avvia Pocket Radio Manager"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#AppExe}"; Description: "Avvia E5577 Control"; Flags: nowait postinstall skipifsilent

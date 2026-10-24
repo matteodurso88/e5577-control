@@ -9,12 +9,14 @@ from unittest.mock import patch, Mock
 
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
-from PySide6.QtCore import QCoreApplication, QEvent, Qt
+from PySide6.QtCore import QCoreApplication, QEvent, Qt, QSize
+from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import (QApplication, QMessageBox, QFrame,
-                              QGroupBox, QTableWidget, QPlainTextEdit)
+                              QGroupBox, QTableWidget, QPlainTextEdit, QLabel, QToolButton, QWidget)
 from shiboken6 import delete as delete_qt_object
 
 from pocket_manager.qt_app import PocketWindow
+from pocket_manager import __version__
 
 
 class BasicAdvancedViewTests(unittest.TestCase):
@@ -51,6 +53,59 @@ class BasicAdvancedViewTests(unittest.TestCase):
         QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
         self.app.processEvents()
         self.window = None
+
+    def test_product_version_and_canonical_brand_footer(self):
+        self.assertEqual(__version__, "1.0.0")
+        self.assertEqual(self.window.windowTitle(), "E5577 Control · v1.0.0")
+        footer = self.window.findChild(QLabel, "productFooter")
+        logo = self.window.findChild(QToolButton, "productFooterLogo")
+        row = self.window.findChild(QWidget, "productFooterRow")
+        self.assertIsNotNone(footer)
+        self.assertIsNotNone(logo)
+        self.assertIsNotNone(row)
+        self.assertEqual(row.height(), 22)
+        self.assertEqual(logo.height(), 20)
+        self.assertEqual(logo.iconSize(), QSize(71, 18))
+        self.assertTrue(footer.isVisible())
+        self.assertTrue(logo.isVisible())
+        self.assertIn("v1.0.0", footer.text())
+        self.assertNotIn("Sviluppato da", footer.text())
+        self.assertFalse(logo.icon().isNull())
+        self.assertEqual(logo.accessibleName(), "matt88.it — sito ufficiale")
+        self.window.advanced_toggle.setChecked(True)
+        self.assertTrue(logo.isVisible())
+
+    def test_footer_brand_opens_matt88_without_modem_access(self):
+        logo = self.window.findChild(QToolButton, "productFooterLogo")
+        with patch("pocket_manager.qt_app.QDesktopServices.openUrl") as opened:
+            logo.click()
+        opened.assert_called_once()
+        self.assertEqual(opened.call_args.args[0].toString(), "https://matt88.it")
+
+    def test_footer_logo_switches_with_light_and_dark_palette(self):
+        logo = self.window.findChild(QToolButton, "productFooterLogo")
+        for background in ("#f7f9fc", "#061426"):
+            pal = QPalette(self.window.palette())
+            pal.setColor(QPalette.ColorRole.Window, QColor(background))
+            self.window.setPalette(pal)
+            self.window._refresh_footer_logo()
+            self.assertFalse(logo.icon().isNull())
+            self.assertFalse(logo.icon().pixmap(logo.iconSize()).isNull())
+
+    def test_about_dialog_credits_and_version_without_hardware_access(self):
+        dialog = self.window._about_dialog()
+        try:
+            self.assertEqual(dialog.windowTitle(), "Informazioni su E5577 Control")
+            self.assertEqual(dialog.findChild(QLabel, "aboutVersion").text(), "Versione 1.0.0")
+            credits = dialog.findChild(QLabel, "aboutCredits")
+            self.assertIn("Sviluppato da matt88.it", credits.text())
+            self.assertIn('href="https://matt88.it"', credits.text())
+            self.assertTrue(credits.openExternalLinks())
+            about_button = self.window.findChild(type(self.window.connect_btn), "aboutButton")
+            self.assertIsNotNone(about_button)
+        finally:
+            dialog.close()
+            dialog.deleteLater()
 
     def test_simple_mode_shows_main_tasks_hides_technical_panels(self):
         tabs = self.window.tabs
