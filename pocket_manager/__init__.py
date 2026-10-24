@@ -1,2 +1,2 @@
-"""Pocket Radio Manager: discovery, saved profiles and LTE radio tools."""
-__version__ = "0.1.0"
+"""E5577 Control: discovery, saved profiles and LTE radio tools."""
+__version__ = "1.0.0"
