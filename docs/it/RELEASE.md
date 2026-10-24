@@ -23,7 +23,9 @@ Asset previsti:
 
 ## Creazione della release
 
-Da una copia locale pulita e aggiornata di `main`, con GitHub CLI autenticata:
+**Percorso approvato per la pubblicazione v1.0.0:** mergiare la PR Product verificata su `main` usando come titolo esatto del commit di merge `release: E5577 Control v1.0.0`. La CI di quel preciso commit esegue prima le build native su Linux e Windows; solo se entrambe passano, il job di rilascio crea o verifica il tag annotato `v1.0.0`, ne confronta il commit, assembla i quattro binari appena generati, calcola `SHA256SUMS.txt` e crea la GitHub Release pubblica. In presenza di tag/release preesistenti incoerenti si arresta. I normali push su `main` **non** pubblicano release. Il titolo speciale del merge rappresenta l'autorizzazione una tantum dell'owner.
+
+**Alternativa manuale** (solo recupero, quando non esiste ancora il tag): da una copia locale pulita di `main` con GitHub CLI autenticata:
 
 ```bash
 git fetch origin main --tags
