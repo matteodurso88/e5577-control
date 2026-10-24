@@ -45,6 +45,12 @@ def main(argv: list[str] | None = None) -> int:
         elif sys.platform == "win32":
             import keyring.backends.Windows  # noqa: F401
         asset_root = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[1]))
+        for license_file in ("LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md",
+                             "LICENSES/LGPL-3.0-only.txt"):
+            path = asset_root / license_file
+            if not path.is_file() or path.stat().st_size < 100:
+                raise RuntimeError(f"Missing bundled license and notice: {license_file}")
+
         for variant in ("logo-dark.svg", "logo-light.svg"):
             path = asset_root / "assets" / "matt88" / variant
             if not path.is_file():
