@@ -200,7 +200,7 @@ class PocketWindow(QMainWindow):
         self.sms_reader_dialog = None
         self.sms_page = 1
         self.mobile_enabled = None
-        self.setWindowTitle("Pocket Radio Manager · " + __version__)
+        self.setWindowTitle("E5577 Control · v" + __version__)
         resource_root = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[1]))
         for icon_asset in (
             resource_root / "pocket-radio-manager.png",
@@ -274,6 +274,10 @@ class PocketWindow(QMainWindow):
         self.advanced_toggle.toggled.connect(self._set_advanced)
         header.addWidget(self.status, 1)
         header.addWidget(self.advanced_toggle)
+        about_button = QPushButton("Informazioni")
+        about_button.setObjectName("aboutButton")
+        about_button.clicked.connect(self._show_about)
+        header.addWidget(about_button)
         outer.addLayout(header)
 
         self.tabs = QTabWidget()
@@ -297,6 +301,18 @@ class PocketWindow(QMainWindow):
         self.log.setReadOnly(True)
         self.log.setMaximumHeight(105)
         outer.addWidget(self.log)
+
+        # Visible in basic and advanced modes, including while offline.
+        self.product_footer = QLabel(
+            f"E5577 Control · v{__version__}  |  "
+            '<a href="https://matt88.it">Sviluppato da matt88.it</a>'
+        )
+        self.product_footer.setObjectName("productFooter")
+        self.product_footer.setTextFormat(Qt.TextFormat.RichText)
+        self.product_footer.setOpenExternalLinks(True)
+        self.product_footer.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
+        self.product_footer.setAlignment(Qt.AlignmentFlag.AlignRight)
+        outer.addWidget(self.product_footer)
         self.setStyleSheet(
             "QWidget {font-size: 13px;} QPushButton {padding: 6px 10px;}"
             "QGroupBox {font-weight: bold; margin-top: 10px; padding-top: 9px;}"
@@ -309,6 +325,35 @@ class PocketWindow(QMainWindow):
             "background: palette(base);}"
             "QProgressBar::chunk {background: #4795c7; border-radius: 4px;}"
         )
+
+    def _about_dialog(self) -> QDialog:
+        """Build a self-contained, read-only product/credits dialog."""
+        dialog = QDialog(self)
+        dialog.setObjectName("aboutDialog")
+        dialog.setWindowTitle("Informazioni su E5577 Control")
+        dialog.setMinimumWidth(390)
+        layout = QVBoxLayout(dialog)
+        title = QLabel("E5577 Control")
+        title.setObjectName("aboutProductName")
+        title.setStyleSheet("font-size: 20px; font-weight: bold;")
+        version = QLabel(f"Versione {__version__}")
+        version.setObjectName("aboutVersion")
+        description = QLabel("Gestione e diagnostica del modem Huawei E5577Cs-321.")
+        description.setWordWrap(True)
+        credits = QLabel('<a href="https://matt88.it">Sviluppato da matt88.it</a>')
+        credits.setObjectName("aboutCredits")
+        credits.setTextFormat(Qt.TextFormat.RichText)
+        credits.setOpenExternalLinks(True)
+        credits.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
+        for widget in (title, version, description, credits):
+            layout.addWidget(widget)
+        close = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        close.rejected.connect(dialog.reject)
+        layout.addWidget(close)
+        return dialog
+
+    def _show_about(self):
+        self._about_dialog().exec()
 
     def _set_advanced(self, enabled: bool):
         """Only change visibility: technical widgets and their state remain intact."""
@@ -1444,7 +1489,7 @@ class PocketWindow(QMainWindow):
 
 def main() -> int:
     app = QApplication(sys.argv)
-    app.setApplicationName("Pocket Radio Manager")
+    app.setApplicationName("E5577 Control")
     window = PocketWindow()
     window.show()
     return app.exec()
