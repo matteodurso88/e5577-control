@@ -1,10 +1,7 @@
-# E5577 Control v1.0.0 — Release notes / Note di rilascio
+# v1.0.1 replaces v1.0.0 / La v1.0.1 sostituisce la v1.0.0
 
-The canonical bilingual release notes are maintained together with their respective guides:
+Current release notes / Note di rilascio correnti:
+- [English v1.0.1](en/RELEASE_NOTES_v1.0.1.md)
+- [Italiano v1.0.1](it/RELEASE_NOTES_v1.0.1.md)
 
-- [English release notes](en/RELEASE_NOTES_v1.0.0.md)
-- [Note di rilascio in italiano](it/RELEASE_NOTES_v1.0.0.md)
-
-The publication pipeline uses the combined bilingual notes in `docs/en/RELEASE_NOTES_v1.0.0.md` for the GitHub Release description.
-
-See [Releases](https://github.com/matteodurso88/e5577-control/releases) for publication state and actual binary assets.
+Historical source notes / Note storiche del sorgente: [EN v1.0.0](en/RELEASE_NOTES_v1.0.0.md), [IT v1.0.0](it/RELEASE_NOTES_v1.0.0.md). The old public v1.0.0 **GitHub Release and binary assets** are withdrawn only after v1.0.1 has been successfully verified; the annotated historical v1.0.0 Git tag remains available for provenance.
