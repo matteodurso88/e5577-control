@@ -28,10 +28,10 @@ Password handling crosses the OS keyring boundary only on explicit opt-in, and e
 
 ## Distribution
 
-- `pyproject.toml`: distribution name `e5577-control`, version `1.0.0`, CLI entry `e5577-control` and compatibility alias `pocket-radio-manager`; Python package remains `pocket_manager`.
+- `pyproject.toml`: distribution name `e5577-control`, version `1.0.1`, CLI entry `e5577-control` and compatibility alias `pocket-radio-manager`; Python package remains `pocket_manager`.
 - PyInstaller onedir: `E5577Control` / `E5577Control.exe`; native `.deb` and Inno Setup `.exe`; portable `.tar.gz` and `.zip`.
 - Linux desktop entry: `packaging/linux/io.matt88.E5577Control.desktop`; Windows installer: `packaging/windows/E5577Control.iss`.
-- Version and publisher in GUI: `v1.0.0`, About panel, complete 18px matt88.it wordmark in a 22px footer. The wordmark variant is selected from the Qt palette and bundled offline with the frozen app.
+- Version and publisher in GUI: `v1.0.1`, About panel, complete 18px matt88.it wordmark in a 22px footer. The wordmark variant is selected from the Qt palette and bundled offline with the frozen app.
 - All releases must be based on immutable exact Git tags; see [Release](RELEASE.md).
 
 ## Historical compatibility
