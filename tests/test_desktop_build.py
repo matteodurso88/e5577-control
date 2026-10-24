@@ -73,7 +73,7 @@ class NativeBuildTests(unittest.TestCase):
 
     def test_svg_icon_is_native_vector_with_accessible_title(self):
         from xml.etree import ElementTree
-        source = Path(__file__).resolve().parents[1] / "assets" / "pocket-radio-manager-icon.svg"
+        source = Path(__file__).resolve().parents[1] / "assets" / "e5577-control-icon.svg"
         root = ElementTree.parse(source).getroot()
         self.assertEqual(root.get("viewBox"), "0 0 256 256")
         self.assertTrue(root.findall(".//{http://www.w3.org/2000/svg}path"))
