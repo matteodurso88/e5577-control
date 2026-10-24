@@ -3,7 +3,7 @@ name: E5577 Control | Linux + Windows desktop packages
 on:
   push:
     branches: [main]
-    tags: [v1.0.0]
+    tags: [v1.0.1]
   pull_request:
   workflow_dispatch:
 
@@ -85,12 +85,12 @@ jobs:
 
 
   release-v1:
-    name: Publish verified v1.0.0 assets
+    name: Publish verified v1.0.1 assets
     if: >-
       github.event_name == 'push' &&
-      (github.ref == 'refs/tags/v1.0.0' ||
+      (github.ref == 'refs/tags/v1.0.1' ||
        (github.ref == 'refs/heads/main' &&
-        startsWith(github.event.head_commit.message, 'release: E5577 Control v1.0.0')))
+        startsWith(github.event.head_commit.message, 'release: E5577 Control v1.0.1')))
     needs: package
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -106,17 +106,17 @@ jobs:
       - name: Create or verify annotated tag on the exact approved commit
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: v1.0.0
+          TAG: v1.0.1
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          grep -Fqx 'version = "1.0.0"' pyproject.toml
-          test -s docs/en/RELEASE_NOTES_v1.0.0.md
-          test -s docs/it/RELEASE_NOTES_v1.0.0.md
+          grep -Fqx 'version = "1.0.1"' pyproject.toml
+          test -s docs/en/RELEASE_NOTES_v1.0.1.md
+          test -s docs/it/RELEASE_NOTES_v1.0.1.md
 
           if [ "$GITHUB_REF" = "refs/heads/main" ] &&              ! git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
             # One-time release approval is the exact merge commit title.
-            tag_sha="$(gh api -X POST "repos/$GITHUB_REPOSITORY/git/tags"               -f tag="$TAG" -f message="E5577 Control v1.0.0"               -f object="$GITHUB_SHA" -f type=commit --jq '.sha')"
+            tag_sha="$(gh api -X POST "repos/$GITHUB_REPOSITORY/git/tags"               -f tag="$TAG" -f message="E5577 Control v1.0.1"               -f object="$GITHUB_SHA" -f type=commit --jq '.sha')"
             gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs"               -f ref="refs/tags/$TAG" -f sha="$tag_sha" >/dev/null
           fi
 
@@ -134,14 +134,14 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p release-assets
-          for filename in             e5577-control-v1.0.0-linux-x86_64.deb             e5577-control-v1.0.0-linux-x86_64.tar.gz             e5577-control-v1.0.0-windows-x86_64-setup.exe             e5577-control-v1.0.0-windows-x86_64.zip; do
+          for filename in             e5577-control-v1.0.1-linux-x86_64.deb             e5577-control-v1.0.1-linux-x86_64.tar.gz             e5577-control-v1.0.1-windows-x86_64-setup.exe             e5577-control-v1.0.1-windows-x86_64.zip; do
             mapfile -t matches < <(find downloaded-artifacts -type f -name "$filename")
             test "${#matches[@]}" -eq 1
             test -s "${matches[0]}"
             cp -- "${matches[0]}" "release-assets/$filename"
           done
           test "$(find release-assets -maxdepth 1 -type f | wc -l)" -eq 4
-          (cd release-assets && sha256sum e5577-control-v1.0.0-* > SHA256SUMS.txt)
+          (cd release-assets && sha256sum e5577-control-v1.0.1-* > SHA256SUMS.txt)
           (cd release-assets && sha256sum --check SHA256SUMS.txt)
           test "$(wc -l < release-assets/SHA256SUMS.txt)" -eq 4
           cat release-assets/SHA256SUMS.txt
@@ -149,11 +149,34 @@ jobs:
       - name: Publish GitHub Release without replacing historical assets
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: v1.0.0
+          TAG: v1.0.1
         run: |
           set -euo pipefail
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "A release for $TAG already exists; refusing to replace it."
             exit 1
           fi
-          gh release create "$TAG" release-assets/*             --repo "$GITHUB_REPOSITORY"             --verify-tag             --title "E5577 Control v1.0.0"             --notes-file docs/en/RELEASE_NOTES_v1.0.0.md             --latest
+          gh release create "$TAG" release-assets/*             --repo "$GITHUB_REPOSITORY"             --verify-tag             --title "E5577 Control v1.0.1"             --notes-file docs/en/RELEASE_NOTES_v1.0.1.md             --latest
+
+      - name: Retire superseded v1.0.0 GitHub Release (preserve historical tag)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          new_id="$(gh api "repos/$repo/releases/tags/v1.0.1" --jq '.id')"
+          test -n "$new_id" && test "$new_id" != null
+          test "$(gh api "repos/$repo/releases/tags/v1.0.1" --jq '.draft')" = false
+          test "$(gh api "repos/$repo/releases/tags/v1.0.1" --jq '.prerelease')" = false
+          test "$(gh api "repos/$repo/releases/tags/v1.0.1" --jq '.assets | length')" -eq 5
+          for filename in             e5577-control-v1.0.1-linux-x86_64.deb             e5577-control-v1.0.1-linux-x86_64.tar.gz             e5577-control-v1.0.1-windows-x86_64-setup.exe             e5577-control-v1.0.1-windows-x86_64.zip             SHA256SUMS.txt; do
+            gh api "repos/$repo/releases/tags/v1.0.1"               --jq '.assets[].name' | grep -Fx -- "$filename"
+          done
+          previous_id="$(gh api "repos/$repo/releases/tags/v1.0.0" --jq '.id')"
+          test "$previous_id" = 422924008
+          gh release delete v1.0.0 --repo "$repo" --yes
+          # Do not use --cleanup-tag: preserve annotated tag and 124-commit history.
+          if gh api "repos/$repo/releases/tags/v1.0.0" >/dev/null 2>&1; then
+            echo "Old release is still listed"; exit 1
+          fi
+          echo "v1.0.0 release retired; v1.0.0 Git tag retained"
