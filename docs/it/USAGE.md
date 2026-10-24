@@ -4,7 +4,7 @@
 
 ## Primo avvio e collegamento
 
-1. Avviare **E5577 Control** e verificare il titolo `v1.0.0`, il logo completo **matt88.it** nel footer e il pulsante **Informazioni**.
+1. Avviare **E5577 Control** e verificare il titolo `v1.0.1`, il logo completo **matt88.it** nel footer e il pulsante **Informazioni**.
 2. Collegare il computer alla rete del modem Huawei E5577Cs-321 (Wi-Fi o USB). L'indirizzo storico è `192.168.8.1`, ma verificare indirizzo e credenziali effettivi tramite la Web UI Huawei.
 3. Usare **Trova dispositivo** oppure un profilo salvato, quindi **Connetti**. La ricerca riconosce endpoint API compatibili: trovare un candidato non certifica il modello fisico.
 4. Cominciare con le sole letture di rete, SIM e segnale. Non è necessario cambiare bande o dati mobili per il primo collaudo.
