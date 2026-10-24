@@ -54,3 +54,7 @@ The history of this workflow itself remains in WORKSHOP, including commits `97fd
 ## Completion tracking
 
 See [Product migration Issue #1](https://github.com/matteodurso88/e5577-control/issues/1) for the verified migration and outstanding release gates. WORKSHOP retains its immutable history and original GitHub objects.
+
+## v1.0.1 GPL licensing update (2026-10-24)
+
+The initial standalone v1.0.0 GitHub Release was published on commit `dbe5192da597c84e690d0e96e3d62c1fffdb2dc3` without an explicit root LICENSE. The owner subsequently selected `GPL-3.0-or-later` for E5577 Control source and authorized the v1.0.1 license-correction release. This changes current source licensing metadata without rewriting prior commit contents. The new v1.0.1 release embeds the full license and notices in all four packages, and withdraws the previously published v1.0.0 GitHub Release assets **only after** successful validation of the replacement. The annotated v1.0.0 Git tag and original source commit remain intact as provenance, alongside the older private WORKSHOP v0.1.0 release.
