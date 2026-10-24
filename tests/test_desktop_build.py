@@ -86,7 +86,7 @@ class NativeBuildTests(unittest.TestCase):
         self.assertIn("[Desktop Entry]", desktop)
         self.assertIn("Type=Application", desktop)
         self.assertIn("Name=E5577 Control", desktop)
-        self.assertIn("Exec=/opt/pocket-radio-manager/E5577Control", desktop)
+        self.assertIn("Exec=/opt/e5577-control/E5577Control", desktop)
         self.assertIn("Icon=e5577-control", desktop)
         self.assertIn("Categories=Network;Utility;", desktop)
 
