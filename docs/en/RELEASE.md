@@ -23,7 +23,9 @@ Release assets:
 
 ## Creating the release
 
-From a clean, current local checkout of `main` with an authenticated `gh` CLI:
+**Approved v1.0.0 publication path:** merge the verified v1.0.0 Product PR to `main` using the exact merge-commit title `release: E5577 Control v1.0.0`. The CI on that exact main commit first executes both native build jobs. Only after both pass, the gated release job creates or verifies annotated tag `v1.0.0`, validates it points to that same commit, assembles the four new binaries, computes `SHA256SUMS.txt` and creates the public GitHub Release. It fails rather than replacing an existing tag/release. A normal `main` push does **not** publish a release. The special merge-commit title constitutes the owner's one-time release authorization.
+
+**Manual tag alternative** (for recovery only, when no release tag exists): from a clean, current local `main` checkout with an authenticated `gh` CLI:
 
 ```bash
 git fetch origin main --tags
