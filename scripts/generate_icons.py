@@ -19,8 +19,8 @@ def generate() -> tuple[Path, Path]:
     renderer = QSvgRenderer(str(SOURCE))
     if not renderer.isValid():
         raise RuntimeError("L'icona SVG canonica non è valida")
-    png = TARGET / "pocket-radio-manager.png"
-    ico = TARGET / "pocket-radio-manager.ico"
+    png = TARGET / "e5577-control.png"
+    ico = TARGET / "e5577-control.ico"
     picture = QImage(256, 256, QImage.Format.Format_ARGB32)
     picture.fill(0)
     painter = QPainter(picture)
