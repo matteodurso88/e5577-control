@@ -1,3 +1,13 @@
+# E5577 Control
+
+**Product migration in progress.** This repository preserves the complete 124-commit history of the original Pocket Radio Manager subtree from WORKSHOP. Hardware priority: Huawei E5577Cs-321.
+
+The existing application and installer metadata below still use the historical *Pocket Radio Manager* name. Linux/Windows packaging is undergoing standalone-repository CI verification; no new E5577 Control release has been published yet.
+
+See [WORKSHOP provenance](docs/WORKSHOP_PROVENANCE.md) and [migration tracking](https://github.com/matteodurso88/e5577-control/issues/1).
+
+---
+
 # Pocket Radio Manager — v0.1 (WORKSHOP)
 
 GUI radio-only per **Huawei E5577Cs-321**. Non sostituisce la Web UI: si concentra su funzioni LTE avanzate escluse o nascoste dall'interfaccia Huawei.
