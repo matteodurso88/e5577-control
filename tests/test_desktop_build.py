@@ -34,9 +34,9 @@ class NativeBuildTests(unittest.TestCase):
     def test_archives_only_frozen_app_folder(self):
         with TemporaryDirectory() as scratch:
             base = Path(scratch)
-            bundle = base / "PocketRadioManager"
+            bundle = base / "E5577Control"
             bundle.mkdir()
-            (bundle / "PocketRadioManager").write_bytes(b"fake-executable")
+            (bundle / "E5577Control").write_bytes(b"fake-executable")
             internal = bundle / "_internal"
             internal.mkdir()
             (internal / "runtime.dat").write_bytes(b"nonsecret")
@@ -48,15 +48,15 @@ class NativeBuildTests(unittest.TestCase):
             package_bundle(bundle, zipped)
             with zipfile.ZipFile(zipped) as reader:
                 names = reader.namelist()
-                self.assertIn("PocketRadioManager/PocketRadioManager", names)
-                self.assertIn("PocketRadioManager/_internal/runtime.dat", names)
+                self.assertIn("E5577Control/E5577Control", names)
+                self.assertIn("E5577Control/_internal/runtime.dat", names)
                 self.assertFalse(any("devices.json" in name for name in names))
 
             tarred = base / "package.tar.gz"
             package_bundle(bundle, tarred)
             with tarfile.open(tarred, "r:gz") as reader:
                 names = reader.getnames()
-                self.assertIn("PocketRadioManager/PocketRadioManager", names)
+                self.assertIn("E5577Control/E5577Control", names)
                 self.assertFalse(any("devices.json" in name for name in names))
 
     def test_frozen_version_flag_does_not_launch_gui(self):
@@ -82,17 +82,17 @@ class NativeBuildTests(unittest.TestCase):
 
     def test_debian_menu_entry_is_correctly_scoped(self):
         desktop = (Path(__file__).resolve().parents[1] / "packaging" / "linux"
-                   / "io.matt88.PocketRadioManager.desktop").read_text(encoding="utf-8")
+                   / "io.matt88.E5577Control.desktop").read_text(encoding="utf-8")
         self.assertIn("[Desktop Entry]", desktop)
         self.assertIn("Type=Application", desktop)
-        self.assertIn("Name=Pocket Radio Manager", desktop)
-        self.assertIn("Exec=/opt/pocket-radio-manager/PocketRadioManager", desktop)
-        self.assertIn("Icon=pocket-radio-manager", desktop)
+        self.assertIn("Name=E5577 Control", desktop)
+        self.assertIn("Exec=/opt/pocket-radio-manager/E5577Control", desktop)
+        self.assertIn("Icon=e5577-control", desktop)
         self.assertIn("Categories=Network;Utility;", desktop)
 
     def test_windows_installer_contains_start_menu_and_uninstall(self):
         setup = (Path(__file__).resolve().parents[1] / "packaging" / "windows"
-                 / "PocketRadioManager.iss").read_text(encoding="utf-8")
+                 / "E5577Control.iss").read_text(encoding="utf-8")
         self.assertIn("SetupIconFile={#IconFile}", setup)
         self.assertIn('Name: "{autoprograms}', setup)
         self.assertIn("UninstallDisplayIcon={app}", setup)
@@ -110,6 +110,7 @@ class NativeBuildTests(unittest.TestCase):
         self.assertIn("python scripts/local_gate.py", workflow)
         self.assertIn("python scripts/build_desktop.py", workflow)
         self.assertIn("dist/packages/*", workflow)
+        self.assertIn("1.0.0", __version__)
         self.assertNotIn("pocket-manager/", workflow)
         self.assertNotIn("gh release create", workflow)
 
