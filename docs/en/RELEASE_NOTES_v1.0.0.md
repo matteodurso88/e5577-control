@@ -19,7 +19,7 @@ Windows x86-64: Inno Setup `.exe` installer or portable `.zip`.
 
 Compatibility focus is Huawei E5577Cs-321; not every device/firmware exposes LTE RF metrics or supports write operations. Allowed LTE bands are not necessarily the connected band's RF measurement. LTE modifications and benchmarks can interrupt connectivity or use mobile data. Back up the original configuration and keep alternative access. Tests and packaging CI are not a substitute for hardware validation.
 
-Documentation: [English](OVERVIEW.md) · [Italiano](../it/OVERVIEW.md) · [Provenance](../WORKSHOP_PROVENANCE.md).
+Documentation: [English](https://github.com/matteodurso88/e5577-control/blob/v1.0.0/docs/en/OVERVIEW.md) · [Italiano](https://github.com/matteodurso88/e5577-control/blob/v1.0.0/docs/it/OVERVIEW.md) · [Provenance](https://github.com/matteodurso88/e5577-control/blob/v1.0.0/docs/WORKSHOP_PROVENANCE.md).
 
 ---
 
@@ -44,4 +44,4 @@ Manifesto `SHA256SUMS.txt` per tutti i pacchetti. **Binari non firmati.**
 
 Il riferimento hardware è Huawei E5577Cs-321: il firmware può non mostrare le misure RF o rifiutare i comandi. Le bande consentite non coincidono automaticamente con la banda radio realmente agganciata. Modifiche LTE e benchmark possono interrompere Internet o consumare dati mobili. Salvare la configurazione e predisporre un collegamento alternativo. La CI non sostituisce il collaudo hardware.
 
-Documentazione: [English](OVERVIEW.md) · [Italiano](../it/OVERVIEW.md).
+Documentazione: [English](https://github.com/matteodurso88/e5577-control/blob/v1.0.0/docs/en/OVERVIEW.md) · [Italiano](https://github.com/matteodurso88/e5577-control/blob/v1.0.0/docs/it/OVERVIEW.md).
