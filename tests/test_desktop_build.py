@@ -115,9 +115,8 @@ class NativeBuildTests(unittest.TestCase):
         self.assertIn("PrivilegesRequired=lowest", setup)
         self.assertIn('Name: "desktopicon"', setup)
 
-    def test_product_ci_runs_from_root_and_does_not_autopublish(self):
-        """A dedicated Product repo must build on PR/main without publishing
-        historical WORKSHOP assets or releases automatically."""
+    def test_product_ci_releases_only_from_annotated_version_tag(self):
+        """Build on PR/main and release only a separately approved exact tag."""
         workflow = (Path(__file__).resolve().parents[1] / ".github" / "workflows"
                     / "e5577-control-desktop.yml").read_text(encoding="utf-8")
         self.assertIn("name: E5577 Control", workflow)
@@ -128,7 +127,31 @@ class NativeBuildTests(unittest.TestCase):
         self.assertIn("dist/packages/*", workflow)
         self.assertIn("1.0.0", __version__)
         self.assertNotIn("pocket-manager/", workflow)
-        self.assertNotIn("gh release create", workflow)
+        self.assertIn("tags: [v1.0.0]", workflow)
+        self.assertIn("github.ref == 'refs/tags/v1.0.0'", workflow)
+        self.assertIn("needs: package", workflow)
+        self.assertIn("git cat-file -t", workflow)
+        self.assertIn("git rev-parse", workflow)
+        self.assertIn("gh release create", workflow)
+        self.assertIn("SHA256SUMS.txt", workflow)
+        self.assertIn("docs/en/RELEASE_NOTES_v1.0.0.md", workflow)
+        self.assertIn("docs/it/RELEASE_NOTES_v1.0.0.md", workflow)
+
+    def test_bilingual_release_documentation_matches_target(self):
+        root = Path(__file__).resolve().parents[1]
+        for topic in ("OVERVIEW", "INSTALL", "USAGE", "SECURITY",
+                      "ARCHITECTURE", "DEVELOPMENT", "RELEASE",
+                      "RELEASE_NOTES_v1.0.0"):
+            for lang in ("en", "it"):
+                doc = root / "docs" / lang / (topic + ".md")
+                self.assertTrue(doc.is_file(), f"Missing {doc}")
+                self.assertGreater(doc.stat().st_size, 500)
+        self.assertTrue((root / "docs" / "history" / "WORKSHOP_README.md").is_file())
+        landing = (root / "README.md").read_text(encoding="utf-8")
+        self.assertIn("## English", landing)
+        self.assertIn("## Italiano", landing)
+        self.assertIn("docs/en/INSTALL.md", landing)
+        self.assertIn("docs/it/INSTALL.md", landing)
 
 
 if __name__ == "__main__":
