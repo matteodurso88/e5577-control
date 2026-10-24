@@ -1,7 +1,7 @@
 """Render deterministic SVG branding into desktop icons (offline only).
 
 Linux desktop launchers use 256px PNG; Windows uses a multi-size .ico.
-The canonical asset is assets/pocket-radio-manager-icon.svg.
+The canonical asset is assets/e5577-control-icon.svg.
 """
 
 from pathlib import Path
