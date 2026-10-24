@@ -3,9 +3,9 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pocket-radio-manager"
-version = "0.1.0"
-description = "Cross-platform Huawei LTE radio monitor and band manager"
+name = "e5577-control"
+version = "1.0.0"
+description = "E5577 Control: desktop management for Huawei E5577 LTE devices"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -18,6 +18,7 @@ dependencies = [
 ]
 
 [project.scripts]
+e5577-control = "pocket_manager.qt_app:main"
 pocket-radio-manager = "pocket_manager.qt_app:main"
 
 [tool.setuptools.packages.find]
