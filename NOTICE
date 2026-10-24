@@ -1,0 +1,33 @@
+# Copyright and licensing notices
+
+E5577 Control
+Copyright (C) 2026 Matteo D'Urso
+Project website: https://matt88.it
+Source: https://github.com/matteodurso88/e5577-control
+
+**Application source code:** GNU General Public License, version 3 or any later
+version (SPDX: `GPL-3.0-or-later`). Read the complete text in `LICENSE`.
+Source files and contributions may have additional original author notices;
+keep them when redistributing. The project is provided without warranty.
+
+**Brand identity exclusion:** the complete matt88.it wordmark, logo symbols and
+other marks in `assets/matt88/` are visual identity of their respective
+owner(s), **not granted for independent branding or trademark use under the
+application's GPL**. Their inclusion permits display as originally supplied
+within unmodified E5577 Control distributions. Do not claim endorsement of
+derivative products or unrelated services. This branding limitation does not
+restrict the rights to the separately GPL-licensed application source.
+
+**Third-party components:** PySide6/Qt, Shiboken, Huawei LTE API, Python
+libraries, PyInstaller and Inno Setup are authored by third parties and
+retain their own respective licenses; `LICENSE` does not relicense them.
+The complete GNU LGPL v3 text is included in
+`LICENSES/LGPL-3.0-only.txt`; LGPL v3 incorporates the GPL v3 terms,
+available in `LICENSE`. See `THIRD_PARTY_NOTICES.md` for sources,
+redistribution information and software-replacement guidance.
+
+The historical WORKSHOP v0.1.0 and Product v1.0.0 releases are **not**
+retroactively modified by this notice. The v1.0.0 Product GitHub Release will
+be withdrawn after v1.0.1 has been successfully published and checked; the
+historical Git tag and commit remain as provenance.
+
