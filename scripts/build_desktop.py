@@ -219,7 +219,7 @@ def run() -> int:
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "dependencies": dependency_versions(),
         "format": "portable plus OS-native installer; unsigned",
-        "icon": "assets/pocket-radio-manager-icon.svg (native vector source)",
+        "icon": "assets/e5577-control-icon.svg (native vector source)",
     }
     (bundle / "BUILD-MANIFEST.json").write_text(
         json.dumps(metadata, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
