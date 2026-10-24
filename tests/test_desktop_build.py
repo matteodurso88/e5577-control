@@ -80,6 +80,22 @@ class NativeBuildTests(unittest.TestCase):
         self.assertTrue(root.findall(".//{http://www.w3.org/2000/svg}title"))
         self.assertNotIn("<image", source.read_text(encoding="utf-8"))
 
+    def test_canonical_matt88_wordmarks_are_svg_and_packaged(self):
+        from xml.etree import ElementTree
+        root = Path(__file__).resolve().parents[1]
+        for variant in ("light", "dark"):
+            logo = root / "assets" / "matt88" / f"logo-{variant}.svg"
+            self.assertTrue(logo.is_file())
+            tree = ElementTree.parse(logo).getroot()
+            self.assertEqual(tree.get("viewBox"), "240 140 1735 440")
+            self.assertIn("<title>matt88.it</title>", logo.read_text(encoding="utf-8"))
+
+        build = (root / "scripts" / "build_desktop.py").read_text(encoding="utf-8")
+        self.assertIn('"assets/matt88"', build)
+        self.assertIn('"--add-data"', build)
+        entry = (root / "scripts" / "frozen_entry.py").read_text(encoding="utf-8")
+        self.assertIn("Missing canonical matt88.it branding asset", entry)
+
     def test_debian_menu_entry_is_correctly_scoped(self):
         desktop = (Path(__file__).resolve().parents[1] / "packaging" / "linux"
                    / "io.matt88.E5577Control.desktop").read_text(encoding="utf-8")
