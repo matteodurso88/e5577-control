@@ -10,7 +10,7 @@ from PySide6.QtSvg import QSvgRenderer
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "assets" / "pocket-radio-manager-icon.svg"
+SOURCE = ROOT / "assets" / "e5577-control-icon.svg"
 TARGET = ROOT / "build" / "icons"
 
 
