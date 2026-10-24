@@ -28,3 +28,7 @@ Repository access/history may be public. Do not commit real credentials, persona
 Report a vulnerability privately to the maintainer rather than opening an issue containing exploits with active credentials, sensitive logs or personal data. Public non-sensitive bugs: [GitHub Issues](https://github.com/matteodurso88/e5577-control/issues).
 
 Historical source provenance: [WORKSHOP_PROVENANCE.md](../WORKSHOP_PROVENANCE.md).
+
+## License boundaries
+
+E5577 Control code is distributed under GPL-3.0-or-later, with complete terms in the root `LICENSE`. Qt/PySide6 may be distributed under LGPLv3/GPL alternatives depending on the library module; see `LICENSES/LGPL-3.0-only.txt` and `THIRD_PARTY_NOTICES.md`. The full matt88.it visual brand is reserved separately under `NOTICE`, without limiting source-code rights. Version-specific downstream dependencies and LGPL compliance remain the distributor's responsibility.

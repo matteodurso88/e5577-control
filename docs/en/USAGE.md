@@ -4,7 +4,7 @@
 
 ## First start and connection
 
-1. Launch **E5577 Control**; confirm the title shows `v1.0.0`, the persistent canonical **matt88.it** footer and **About** button.
+1. Launch **E5577 Control**; confirm the title shows `v1.0.1`, the persistent canonical **matt88.it** footer and **About** button.
 2. Connect your computer to the Huawei E5577Cs-321 network (Wi-Fi or USB). The historical router address is `192.168.8.1`, but verify the real address and credentials through the official Huawei interface.
 3. Use **Find device** (`Trova dispositivo`) or a saved profile, then **Connect** (`Connetti`). The app checks compatible Huawei API endpoints; finding a candidate is not proof of exact hardware identity.
 4. Start with read-only connection, network, SIM, and signal checks. No band operation or cellular-data toggle is necessary for a smoke test.

@@ -28,3 +28,7 @@ La cronologia del repository può essere pubblica. Non committare credenziali re
 Segnalare vulnerabilità in forma privata al manutentore, senza aprire issue con credenziali attive, log sensibili o dati personali. Per bug non sensibili usare le [GitHub Issues](https://github.com/matteodurso88/e5577-control/issues).
 
 Provenienza storica: [WORKSHOP_PROVENANCE.md](../WORKSHOP_PROVENANCE.md).
+
+## Licenze
+
+Il codice di E5577 Control è distribuito con GPL-3.0-or-later, testo integrale in `LICENSE`. Qt/PySide6 può essere distribuito in regime LGPLv3/GPL secondo il modulo; consultare `LICENSES/LGPL-3.0-only.txt` e `THIRD_PARTY_NOTICES.md`. Il brand grafico matt88.it resta separatamente tutelato in `NOTICE`, senza limitare i diritti sul sorgente. Occorre verificare le dipendenze e gli obblighi LGPL per ciascuna versione distribuita.

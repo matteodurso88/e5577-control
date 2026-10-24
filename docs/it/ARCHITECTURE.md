@@ -28,10 +28,10 @@ Le password entrano nel portachiavi OS soltanto previo consenso. Un errore non p
 
 ## Distribuzione
 
-- `pyproject.toml`: distribuzione `e5577-control`, versione `1.0.0`, comando `e5577-control` e alias compatibile `pocket-radio-manager`; il modulo Python resta `pocket_manager`.
+- `pyproject.toml`: distribuzione `e5577-control`, versione `1.0.1`, comando `e5577-control` e alias compatibile `pocket-radio-manager`; il modulo Python resta `pocket_manager`.
 - PyInstaller onedir: `E5577Control` / `E5577Control.exe`; installer `.deb` / Inno Setup `.exe`, portabili `.tar.gz` / `.zip`.
 - Launcher Linux: `packaging/linux/io.matt88.E5577Control.desktop`; installer Windows: `packaging/windows/E5577Control.iss`.
-- Identità GUI: `v1.0.0`, finestra Informazioni, logo completo matt88.it alto 18px in un footer alto 22px. Variante scelta in base alla palette Qt e incorporata nell'eseguibile, anche offline.
+- Identità GUI: `v1.0.1`, finestra Informazioni, logo completo matt88.it alto 18px in un footer alto 22px. Variante scelta in base alla palette Qt e incorporata nell'eseguibile, anche offline.
 - Il rilascio deve partire da un tag Git immutabile e verificato; vedi [Rilascio](RELEASE.md).
 
 ## Compatibilità storica

@@ -96,6 +96,25 @@ class NativeBuildTests(unittest.TestCase):
         entry = (root / "scripts" / "frozen_entry.py").read_text(encoding="utf-8")
         self.assertIn("Missing canonical matt88.it branding asset", entry)
 
+    def test_license_spdx_and_full_distributions(self):
+        root = Path(__file__).resolve().parents[1]
+        p = (root / "pyproject.toml").read_text(encoding="utf-8")
+        self.assertIn('license = "GPL-3.0-or-later"', p)
+        for file, min_length in (
+            ("LICENSE", 25000),
+            ("LICENSES/LGPL-3.0-only.txt", 25000),
+            ("NOTICE", 500),
+            ("THIRD_PARTY_NOTICES.md", 1000),
+        ):
+            self.assertGreater((root / file).stat().st_size, min_length)
+        build = (root / "scripts" / "build_desktop.py").read_text(encoding="utf-8")
+        self.assertIn('shutil.copy2(ROOT / "LICENSE"', build)
+        self.assertIn('shutil.copy2(ROOT / "NOTICE"', build)
+        self.assertIn('shutil.copy2(ROOT / "THIRD_PARTY_NOTICES.md"', build)
+        self.assertIn('doc_dir / "copyright"', build)
+        frozen = (root / "scripts" / "frozen_entry.py").read_text(encoding="utf-8")
+        self.assertIn("Missing bundled license and notice", frozen)
+
     def test_debian_menu_entry_is_correctly_scoped(self):
         desktop = (Path(__file__).resolve().parents[1] / "packaging" / "linux"
                    / "io.matt88.E5577Control.desktop").read_text(encoding="utf-8")
@@ -125,23 +144,25 @@ class NativeBuildTests(unittest.TestCase):
         self.assertIn("python scripts/local_gate.py", workflow)
         self.assertIn("python scripts/build_desktop.py", workflow)
         self.assertIn("dist/packages/*", workflow)
-        self.assertIn("1.0.0", __version__)
+        self.assertIn("1.0.1", __version__)
         self.assertNotIn("pocket-manager/", workflow)
-        self.assertIn("tags: [v1.0.0]", workflow)
-        self.assertIn("github.ref == 'refs/tags/v1.0.0'", workflow)
+        self.assertIn("tags: [v1.0.1]", workflow)
+        self.assertIn("github.ref == 'refs/tags/v1.0.1'", workflow)
         self.assertIn("needs: package", workflow)
         self.assertIn("git cat-file -t", workflow)
         self.assertIn("git rev-parse", workflow)
         self.assertIn("gh release create", workflow)
         self.assertIn("SHA256SUMS.txt", workflow)
-        self.assertIn("docs/en/RELEASE_NOTES_v1.0.0.md", workflow)
-        self.assertIn("docs/it/RELEASE_NOTES_v1.0.0.md", workflow)
+        self.assertIn("gh release delete", workflow)
+        self.assertIn("422924008", workflow)
+        self.assertIn("docs/en/RELEASE_NOTES_v1.0.1.md", workflow)
+        self.assertIn("docs/it/RELEASE_NOTES_v1.0.1.md", workflow)
 
     def test_bilingual_release_documentation_matches_target(self):
         root = Path(__file__).resolve().parents[1]
         for topic in ("OVERVIEW", "INSTALL", "USAGE", "SECURITY",
                       "ARCHITECTURE", "DEVELOPMENT", "RELEASE",
-                      "RELEASE_NOTES_v1.0.0"):
+                      "RELEASE_NOTES_v1.0.1"):
             for lang in ("en", "it"):
                 doc = root / "docs" / lang / (topic + ".md")
                 self.assertTrue(doc.is_file(), f"Missing {doc}")

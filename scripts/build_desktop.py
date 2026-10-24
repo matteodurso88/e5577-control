@@ -88,6 +88,11 @@ def build_deb(bundle: Path, png: Path) -> Path:
     shutil.copy2(png, icon_dest)
     icon_dest.chmod(0o644)
 
+    # Debian copyright metadata points recipients to the complete bundled terms.
+    doc_dir = stage / "usr" / "share" / "doc" / "e5577-control"
+    doc_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(ROOT / "NOTICE", doc_dir / "copyright")
+
     control_dir = stage / "DEBIAN"
     control_dir.mkdir()
     (control_dir / "control").write_text(
@@ -206,6 +211,16 @@ def run() -> int:
     if not executable.is_file():
         raise RuntimeError("Missing compiled executable: " + str(executable))
 
+    # License and provenance material must be available offline from every
+    # portable archive and OS-native installer, not only in GitHub sources.
+    shutil.copy2(ROOT / "LICENSE", bundle / "LICENSE")
+    shutil.copy2(ROOT / "NOTICE", bundle / "NOTICE")
+    shutil.copy2(ROOT / "THIRD_PARTY_NOTICES.md", bundle / "THIRD_PARTY_NOTICES.md")
+    license_dir = bundle / "LICENSES"
+    license_dir.mkdir(exist_ok=True)
+    shutil.copy2(ROOT / "LICENSES" / "LGPL-3.0-only.txt",
+                 license_dir / "LGPL-3.0-only.txt")
+
     # Version and import checks run on the native frozen executable, offline.
     for flag in ("--version", "--self-check"):
         print(f"Smoke: {executable.name} {flag}", flush=True)
@@ -214,6 +229,9 @@ def run() -> int:
     metadata = {
         "name": "E5577 Control",
         "version": __version__,
+        "license": "GPL-3.0-or-later",
+        "license_material": ["LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md",
+                             "LICENSES/LGPL-3.0-only.txt"],
         "platform": platform_name,
         "architecture": platform.machine(),
         "commit": os.environ.get("GITHUB_SHA", "local-unverified"),
@@ -230,6 +248,8 @@ def run() -> int:
         "Run the executable from the extracted folder. The installers register "
         "the application in Linux's application menu or the Windows Start Menu.\n"
         "No saved profiles, credentials or SMS are bundled.\n"
+        "Application code: GPL-3.0-or-later (LICENSE).\n"
+        "Read NOTICE and THIRD_PARTY_NOTICES.md for brand and dependency rights.\n"
         "These binaries are currently unsigned.\n",
         encoding="utf-8",
     )
