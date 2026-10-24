@@ -1,12 +1,42 @@
 # E5577 Control
 
-**Product migration in progress.** This repository preserves the complete 124-commit history of the original Pocket Radio Manager subtree from WORKSHOP. Hardware priority: Huawei E5577Cs-321.
+**Product · v1.0.0 candidate** · Huawei E5577Cs-321 · Linux / Windows
 
-The existing application and installer metadata below still use the historical *Pocket Radio Manager* name. Linux/Windows packaging is undergoing standalone-repository CI verification; no new E5577 Control release has been published yet.
+E5577 Control is a desktop manager for Huawei E5577 LTE mobile routers:
+connection and signal status, SMS read-only inbox, LTE radio configuration
+and guarded diagnostic/benchmark tools. Features depend on the device firmware;
+a simulated CI smoke is **not** a physical hardware acceptance test.
 
-See [WORKSHOP provenance](docs/WORKSHOP_PROVENANCE.md) and [migration tracking](https://github.com/matteodurso88/e5577-control/issues/1).
+**v1.0.0 Product work includes:**
+- E5577 Control identity and 1.0.0 version in the title, persistent footer, About dialog, executable, installers and application menus.
+- Clickable **[matt88.it](https://matt88.it)** attribution in the GUI; product support and release links target this repository.
+- Retention of the existing `pocket_manager` Python import namespace and legacy OS credential vault/profile paths for backward-compatible saved devices.
+- Linux x86-64 `.deb` and portable `.tar.gz`, Windows x86-64 Inno Setup `.exe` and portable `.zip`.
+
+**Release status:** v1.0.0 has **not yet been published**. Candidate Linux/Windows
+builds and tests must pass before release, followed by real-device and installer
+smoke on supported systems. GitHub Actions uploads ephemeral candidate packages
+but never publishes a release automatically.
+
+### Developer verification
+
+```bash
+python -m pip install -e . "pyinstaller==6.16.0" "pillow==11.3.0"
+QT_QPA_PLATFORM=offscreen python scripts/local_gate.py
+python -m pocket_manager
+```
+
+See [desktop builds](docs/DESKTOP_BUILDS.md),
+[WORKSHOP provenance](docs/WORKSHOP_PROVENANCE.md) and
+[migration tracking](https://github.com/matteodurso88/e5577-control/issues/1).
 
 ---
+
+## Historical WORKSHOP documentation (Pocket Radio Manager v0.1.0)
+
+The original documentation below is retained for technical provenance. Its
+repository paths, workflow notes, version and lifecycle statuses describe the
+*historical* WORKSHOP state, not the current Product.
 
 # Pocket Radio Manager — v0.1 (WORKSHOP)
 
