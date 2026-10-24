@@ -1,7 +1,7 @@
 ; E5577 Control per-user Inno Setup installer.
 ; Command:
 ; ISCC.exe /DSourceDir="<frozen onedir>" /DOutputDir="<dist/packages>"
-;          /DIconFile="<build/icons/*.ico>" /DAppVersion="1.0.0" thisfile.iss
+;          /DIconFile="<build/icons/*.ico>" /DAppVersion="1.0.1" thisfile.iss
 
 #ifndef AppVersion
   #error "AppVersion is required"
