@@ -7,6 +7,7 @@ network traffic, saved profiles, or credentials. The normal path starts Qt.
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 import sys
 
 from pocket_manager import __version__
@@ -43,6 +44,12 @@ def main(argv: list[str] | None = None) -> int:
             import keyring.backends.SecretService  # noqa: F401
         elif sys.platform == "win32":
             import keyring.backends.Windows  # noqa: F401
+        asset_root = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[1]))
+        for variant in ("logo-dark.svg", "logo-light.svg"):
+            path = asset_root / "assets" / "matt88" / variant
+            if not path.is_file():
+                raise RuntimeError(f"Missing canonical matt88.it branding asset: {variant}")
+
         if sys.stdout is not None:
             print(f"PASS: E5577 Control {__version__} runtime imports")
         return 0
