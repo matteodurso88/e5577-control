@@ -55,8 +55,8 @@ class BasicAdvancedViewTests(unittest.TestCase):
         self.window = None
 
     def test_product_version_and_canonical_brand_footer(self):
-        self.assertEqual(__version__, "1.0.0")
-        self.assertEqual(self.window.windowTitle(), "E5577 Control · v1.0.0")
+        self.assertEqual(__version__, "1.0.1")
+        self.assertEqual(self.window.windowTitle(), "E5577 Control · v1.0.1")
         footer = self.window.findChild(QLabel, "productFooter")
         logo = self.window.findChild(QToolButton, "productFooterLogo")
         row = self.window.findChild(QWidget, "productFooterRow")
@@ -68,7 +68,7 @@ class BasicAdvancedViewTests(unittest.TestCase):
         self.assertEqual(logo.iconSize(), QSize(71, 18))
         self.assertTrue(footer.isVisible())
         self.assertTrue(logo.isVisible())
-        self.assertIn("v1.0.0", footer.text())
+        self.assertIn("v1.0.1", footer.text())
         self.assertNotIn("Sviluppato da", footer.text())
         self.assertFalse(logo.icon().isNull())
         self.assertEqual(logo.accessibleName(), "matt88.it — sito ufficiale")
@@ -96,7 +96,7 @@ class BasicAdvancedViewTests(unittest.TestCase):
         dialog = self.window._about_dialog()
         try:
             self.assertEqual(dialog.windowTitle(), "Informazioni su E5577 Control")
-            self.assertEqual(dialog.findChild(QLabel, "aboutVersion").text(), "Versione 1.0.0")
+            self.assertEqual(dialog.findChild(QLabel, "aboutVersion").text(), "Versione 1.0.1")
             credits = dialog.findChild(QLabel, "aboutCredits")
             self.assertIn("Sviluppato da matt88.it", credits.text())
             self.assertIn('href="https://matt88.it"', credits.text())
