@@ -203,7 +203,7 @@ class PocketWindow(QMainWindow):
         self.setWindowTitle("E5577 Control · v" + __version__)
         resource_root = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[1]))
         for icon_asset in (
-            resource_root / "pocket-radio-manager.png",
+            resource_root / "e5577-control.png",
             resource_root / "assets" / "pocket-radio-manager-icon.svg",
         ):
             if icon_asset.is_file():
