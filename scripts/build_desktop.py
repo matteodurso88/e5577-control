@@ -190,6 +190,7 @@ def run() -> int:
         "--workpath", str(WORK_DIR / "work"),
         "--specpath", str(WORK_DIR / "spec"),
         "--add-data", str(png) + os.pathsep + ".",
+        "--add-data", str(ROOT / "assets" / "matt88") + os.pathsep + "assets/matt88",
         "--collect-submodules", "huawei_lte_api",
         "--collect-submodules", "keyring.backends",
         "--collect-submodules", "platformdirs",
