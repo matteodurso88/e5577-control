@@ -211,11 +211,6 @@ def run() -> int:
     if not executable.is_file():
         raise RuntimeError("Missing compiled executable: " + str(executable))
 
-    # Version and import checks run on the native frozen executable, offline.
-    for flag in ("--version", "--self-check"):
-        print(f"Smoke: {executable.name} {flag}", flush=True)
-        subprocess.run([str(executable), flag], cwd=ROOT, check=True, timeout=75)
-
     # License and provenance material must be available offline from every
     # portable archive and OS-native installer, not only in GitHub sources.
     shutil.copy2(ROOT / "LICENSE", bundle / "LICENSE")
@@ -225,6 +220,11 @@ def run() -> int:
     license_dir.mkdir(exist_ok=True)
     shutil.copy2(ROOT / "LICENSES" / "LGPL-3.0-only.txt",
                  license_dir / "LGPL-3.0-only.txt")
+
+    # Version and import checks run on the native frozen executable, offline.
+    for flag in ("--version", "--self-check"):
+        print(f"Smoke: {executable.name} {flag}", flush=True)
+        subprocess.run([str(executable), flag], cwd=ROOT, check=True, timeout=75)
 
     metadata = {
         "name": "E5577 Control",
