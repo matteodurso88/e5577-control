@@ -99,15 +99,19 @@ class NativeBuildTests(unittest.TestCase):
         self.assertIn("PrivilegesRequired=lowest", setup)
         self.assertIn('Name: "desktopicon"', setup)
 
-    def test_release_tag_is_project_scoped_and_requires_main(self):
-        workflow = (Path(__file__).resolve().parents[2] / ".github" / "workflows"
-                    / "pocket-radio-manager-desktop.yml").read_text(encoding="utf-8")
-        self.assertIn("refs/heads/main", workflow)
-        self.assertIn("needs: package", workflow)
-        self.assertIn("TAG: pocket-radio-manager/v0.1.0", workflow)
-        self.assertIn("pocket-radio-manager-v0.1.0-linux-x86_64.deb", workflow)
-        self.assertIn("pocket-radio-manager-v0.1.0-windows-x86_64-setup.exe", workflow)
-
+    def test_product_ci_runs_from_root_and_does_not_autopublish(self):
+        """A dedicated Product repo must build on PR/main without publishing
+        historical WORKSHOP assets or releases automatically."""
+        workflow = (Path(__file__).resolve().parents[1] / ".github" / "workflows"
+                    / "e5577-control-desktop.yml").read_text(encoding="utf-8")
+        self.assertIn("name: E5577 Control", workflow)
+        self.assertIn("branches: [main]", workflow)
+        self.assertIn("pull_request:", workflow)
+        self.assertIn("python scripts/local_gate.py", workflow)
+        self.assertIn("python scripts/build_desktop.py", workflow)
+        self.assertIn("dist/packages/*", workflow)
+        self.assertNotIn("pocket-manager/", workflow)
+        self.assertNotIn("gh release create", workflow)
 
 
 if __name__ == "__main__":
